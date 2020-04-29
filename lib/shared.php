@@ -1,16 +1,18 @@
 <?php
 
-$secret = getenv("APP_SECRET");;
-
-$here = dirname(__FILE__);
+$secret = getenv("APP_SECRET");
+$here   = dirname(__FILE__);
 
 $db = new PDO("sqlite:$here/database.db");
+# @todo revoked_at
 $db->exec('CREATE TABLE IF NOT EXISTS access_tokens (
     id   INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,
+    code_id INTEGER NOT NULL,
     key TEXT NOT NULL,
     scope TEXT NOT NULL,
-    expiration INTEGER NOT NULL
+    expiration INTEGER NOT NULL,
+    UNIQUE(code_id)
   );');
 
 
@@ -21,7 +23,8 @@ $db->exec('CREATE TABLE IF NOT EXISTS auth_access_codes (
     scope TEXT NOT NULL,
     code TEXT NOT NULL,
     code_challenge TEXT NOT NULL,
-    expiration INTEGER NOT NULL
+    expiration INTEGER NOT NULL,
+    used_at DATETIME DEFAULT NULL
   );');
 
 $db->exec('CREATE TABLE IF NOT EXISTS clients (
@@ -40,6 +43,7 @@ function dbTableInsert($db, $table, $data)
     }, $keys);
     $sql = "INSERT INTO $table(" . implode(", ", $keys) . ') VALUES('. implode(", ", $bindings) .')';
     $stmt = $db->prepare($sql);
+   
     if (!$stmt) {
         echo "\nPDO::errorInfo():\n";
         print_r($db->errorInfo());
@@ -48,7 +52,11 @@ function dbTableInsert($db, $table, $data)
     foreach($data as $key => $value) {
         $stmt->bindValue(':' . $key, $value);
     }
-    return $stmt->execute();
+    $success =  $stmt->execute();
+
+    if (!$success) {
+        throw new Exception($stmt->errorInfo()[2]);
+    }
 }
 
 function view($name, $data=[]) {
@@ -57,6 +65,12 @@ function view($name, $data=[]) {
         extract($vars);
         require $__filename;;
     })($data);
+}
+
+function json_response($data) {
+    header('Content-Type: application/json');
+    echo json_encode($data);
+    exit;
 }
 
 function base64UrlEncode($text)

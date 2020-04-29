@@ -29,7 +29,7 @@ switch ($path) {
         $now           = time();
         
         if (!array_key_exists($client_id, $clients)) {
-            echo json_encode([                
+            return json_response([                
                 'error_code' => 'invalid_request',
                 'error' => "This is not a valid client_id"
             ]);
@@ -37,8 +37,10 @@ switch ($path) {
 
         $stmt = $db->prepare("SELECT * FROM auth_access_codes WHERE client_id=:client_id AND code=:code");
         if (!$stmt) {
-            echo "\nPDO::errorInfo():\n";
-            print_r($db->errorInfo());
+            return json_response([                
+                'error_code' => 'server_error',
+                'error'      => $db->errorInfo(), // @todo don't ever do this fo' real
+            ]);
         }
         $stmt->execute([
             'client_id' => $client_id, 
@@ -46,16 +48,15 @@ switch ($path) {
         ]); 
         $row = $stmt->fetch();
         if (!$row) {
-            echo json_encode([
+            return json_response([                 
                 'error_code' => 'invalid_request',
                 "error" => 'The provided code is not valid',
             ]);
-            exit;
         }
 
         if ($now >= $row['expiration']) {
             logger("Code expired now=$now expiry={$row['expiration']}");
-            echo json_encode([
+            return json_response([                 
                 'error_code' => 'invalid_request',
                 "error" => 'The authorization code has expired',
             ]);
@@ -64,8 +65,9 @@ switch ($path) {
 
         $proof = hash("sha256", base64UrlEncode($code_verifier));
         if (!hash_equals($proof, $row['code_challenge'])) {
-            echo json_encode([
-                "err" => 'code_verifier was not verified',
+            return json_response([  
+                'error_code' => 'invalid_request',
+                "error" => 'code_verifier was not verified',
             ]);
             exit;
         }
@@ -73,17 +75,34 @@ switch ($path) {
         $key  = md5(random_bytes(24));
         $iat  =  time();
         $expires_in = 3600;
-        dbTableInsert($db, 'access_tokens', [
-            'user_id'    => $user_id,
-            'key'        => $key,
-            'scope'      => $row['scope'],
-            'expiration' => $expiration,
-        ]);
+        
+        try {
+            dbTableInsert($db, 'access_tokens', [
+                'user_id'    => $user_id,
+                'key'        => $key,
+                'scope'      => $row['scope'],
+                'expiration' => $iat + $expires_in,
+                'code_id'    => (int) $row['id'], // @todo make code_id unique column
+            ]);
+        } catch (Exception $err) {
+            $message =  $err->getMessage();
+            // code_id is unique to prevent code reuse
+            if ($message === "UNIQUE constraint failed: access_tokens.code_id") {
+                logger("Attempted code reuse code_id={$row['id']} ua={$_SERVER['HTTP_USER_AGENT']}");
+                return json_response([
+                    'error_code' => 'invalid_request',
+                    "error"      => $message,
+                ]);            
+            }
+            return json_response([
+                'error_code' => 'server_error',
+                "error"      => $message,
+            ]);
+        }
 
         header("Cache-Control: no-store");
         header("Pragma: no-cache");
-
-        echo json_encode([
+        return json_response([
             "access_token" => $key,
             "id_token" => generateJwt($secret, [
                 // https://www.iana.org/assignments/jwt/jwt.xhtml#claims
@@ -103,7 +122,7 @@ switch ($path) {
         break;
 
     case '/server/oauth/authorize':
-        $client_id = $_GET['client_id'] ?? null;
+        $client_id     = $_GET['client_id'] ?? null;
         $response_mode = $_GET['response_mode'] ?? "query";
 
         if (!array_key_exists($client_id, $clients)) {
