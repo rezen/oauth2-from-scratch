@@ -10,6 +10,9 @@ open http://localhost:4443/
 
 ## Todo
 - Actually implement authn for server
+- Implement grant_types for SPAs
+- Implement API for client to make requests against
+  - Add scope checking
 
 ## Notes
 `refresh_token` - only used for confidential clients (read server side)
