@@ -1,6 +1,9 @@
 # oauth2-from-scratch
 The best way to learn about a OAuth2 is to implement it ... from scratch! Right now I'm working through `grant_type=authorization_code` and next I'll try out implementing the flow for SPAs.
 
+## Todo
+- Actually implement authn for server
+
 ## Notes
 `refresh_token` - only used for confidential clients (read server side)
 
