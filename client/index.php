@@ -34,6 +34,10 @@ switch ($path) {
             'code_challenge' => hash("sha256", base64UrlEncode($_SESSION['code_verifier'])),
             'code_challenge_method' => 'S256',
         ]);
+
+        if (isset($_GET['sleep'])) {
+            $query .= "&sleep=1";
+        }
         
         view("login", [
             'title' => 'Start',
@@ -44,6 +48,12 @@ switch ($path) {
         if (empty($_GET['state'])) {
             return view("error", [
                 'error' => "Missing state",
+            ]);
+        }
+
+        if (empty($_SESSION)) {
+            return view("error", [
+                'error' => "Restart flow ...",
             ]);
         }
 
@@ -66,8 +76,13 @@ switch ($path) {
         $data_string = http_build_query($data);
         $ch = curl_init();
 
-        set_time_limit (60);
-        sleep(11);
+        
+        // For demo of expiring tokens
+        if (isset($_GET['sleep'])) {
+            set_time_limit(10);
+            sleep(4);
+        }
+
         $server_ip = gethostbyname('server');
         curl_setopt($ch,CURLOPT_URL, "http://$server_ip:4444/server/oauth/token");
         curl_setopt($ch, CURLOPT_POST, 1);
@@ -88,12 +103,18 @@ switch ($path) {
         $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
         $header      = substr($response, 0, $header_size);
         $body        = substr($response, $header_size);
-        echo $body;
 
         $data = json_decode($body);
+
+        if (isset($data->error_code)) {
+            return view("error", [
+                'error' => $data->error ?? $data->error_code,
+            ]);
+        }
         $_SESSION['access_token'] = $data->access_token;
         $_SESSION['id_data']      = parseJwt($data->id_token);
-        // header("Location: /client/dashboard");
+        
+        header("Location: /client/dashboard");
         exit;        
         break;
     case '/client/logout':

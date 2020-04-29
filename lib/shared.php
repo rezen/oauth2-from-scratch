@@ -1,8 +1,9 @@
 <?php
 
-$secret = "Cats923434343";
+$secret = getenv("APP_SECRET");;
 
 $here = dirname(__FILE__);
+
 $db = new PDO("sqlite:$here/database.db");
 $db->exec('CREATE TABLE IF NOT EXISTS access_tokens (
     id   INTEGER PRIMARY KEY,
@@ -21,6 +22,14 @@ $db->exec('CREATE TABLE IF NOT EXISTS auth_access_codes (
     code TEXT NOT NULL,
     code_challenge TEXT NOT NULL,
     expiration INTEGER NOT NULL
+  );');
+
+$db->exec('CREATE TABLE IF NOT EXISTS clients (
+    id   INTEGER PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    client_secret_hash TEXT NOT NULL,
+    name TEXT NOT NULL,
+    redirect_uri TEXT NOT NULL
   );');
 
 function dbTableInsert($db, $table, $data) 

@@ -139,7 +139,13 @@ switch ($path) {
         $params['code']   = $code = md5(random_bytes(24));
         $params['state']  = $state;
         $query =  http_build_query($params);
-        $expiration = time() + 10; // Expires in 60s
+        $expiration = time() + 60; // Expires in 60s
+        
+        // For demoing expiration ... make short expiration
+        if (isset($_GET['sleep'])) {
+            echo "Fix that expire";
+            $expiration = $expiration - 58;
+        }
 
         dbTableInsert($db, 'auth_access_codes', [
             'client_id'      => $client_id,

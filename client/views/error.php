@@ -1,3 +1,4 @@
 <?php require 'header.php'; ?>
-    <?php echo isset($error) ? $error : ""; ?>
+    <strong><?php echo isset($error) ? $error : ""; ?></strong><br />
+    <a href="/client/start">Back</a>
 <?php require 'footer.php'; ?>
