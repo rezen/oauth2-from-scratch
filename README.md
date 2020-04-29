@@ -1,6 +1,13 @@
 # oauth2-from-scratch
 The best way to learn about a OpenConnectID (OAuth2+OpenConnect) is to implement it ... from scratch! Right now I'm working through `grant_type=authorization_code` and next I'll try out implementing the flow for SPAs.
 
+## Run
+```sh
+cd ./oauth2-from-scratch
+docker-compose up -d
+open http://localhost:4443/
+```
+
 ## Todo
 - Actually implement authn for server
 
