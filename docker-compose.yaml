@@ -1,0 +1,33 @@
+version: '2'
+services:
+  server:
+    depends_on: []
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      args:
+        buildno: 1
+    environment: 
+      - PORT=4444
+    volumes:
+      - ./server:/var/www/html/
+      - ./lib:/var/www/lib
+
+    ports:
+      - "4444:4444"
+
+  client:
+    depends_on: []
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      args:
+        buildno: 1
+    environment: 
+      - PORT=4443
+    volumes:
+      - ./client:/var/www/html/
+      - ./lib:/var/www/lib
+
+    ports:
+      - "4443:4443"
