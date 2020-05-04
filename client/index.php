@@ -4,11 +4,14 @@
 date_default_timezone_set("UTC");
 session_start();
 
-require '../lib/shared.php';
+require '../shared/helpers.php';
 
 $path = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH);
 $ext  = pathinfo($path, PATHINFO_EXTENSION);
 
+$server_ip  = gethostbyname('server');
+$server_url = "http://$server_ip:4444";
+$token_url  = "$server_url/server/oauth/token";
 
 
 switch ($path) {
@@ -21,15 +24,17 @@ switch ($path) {
         $iat =  time();
         $key   = "id1";
 
-        $_SESSION['state']         = md5(random_bytes(24));
-        $_SESSION['code_verifier'] = base64UrlEncode(random_bytes(24));
+        if (!isset($_SESSION['state'])) {
+            $_SESSION['state']         = md5(random_bytes(24));
+            $_SESSION['code_verifier'] = base64UrlEncode(random_bytes(24));
+        }
 
         $query = http_build_query([
             'client_id'      => $clients[$key]['id'],
             'response_type'  => 'code', // code|token|id_token token
             'response_mode'  => 'query', // query,fragment
             'state'          => $_SESSION['state'],
-            'scope'          => 'photos',
+            'scope'          => 'openid',
             'redirect_uri'   => $clients[$key]['redirect'],
             'code_challenge' => hash("sha256", base64UrlEncode($_SESSION['code_verifier'])),
             'code_challenge_method' => 'S256',
@@ -45,9 +50,9 @@ switch ($path) {
         ]);
         break;
     case '/client/cb':
-        if (empty($_GET['state'])) {
+        if (empty($_GET['state']) || empty($_SESSION['state'])) {
             return view("error", [
-                'error' => "Missing state",
+                'error' => "Missing the :state parameter",
             ]);
         }
 
@@ -57,10 +62,10 @@ switch ($path) {
             ]);
         }
 
-
         if (!hash_equals($_SESSION['state'], $_GET['state'])) {
-            echo "State does not match";
-            return;
+            return view("error", [
+                'error' => "The :state parameter does not match",
+            ]);
         }
         $key = "id1";
         // 
@@ -83,8 +88,7 @@ switch ($path) {
             sleep(4);
         }
 
-        $server_ip = gethostbyname('server');
-        curl_setopt($ch,CURLOPT_URL, "http://$server_ip:4444/server/oauth/token");
+        curl_setopt($ch,CURLOPT_URL, $token_url);
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);                                                                  
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
@@ -110,9 +114,13 @@ switch ($path) {
                 'error' => $data->error ?? $data->error_code,
             ]);
         }
+        $_SESSION['client_post']  =  $data_string;
+        $_SESSION['server_response']  =  $data;
         $_SESSION['access_token'] = $data->access_token;
         $_SESSION['id_data']      = parseJwt($data->id_token);
-        
+        unset($_SESSION['state']);
+        unset($_SESSION['code_verifier']);
+
         header("Location: /client/dashboard");
         exit;        
         break;
@@ -130,8 +138,11 @@ switch ($path) {
             exit;
         }
         view('dashboard', [
-            'title'  => 'dashboard',
-            'id_data' => $_SESSION['id_data'],
+            'title'       => 'dashboard',
+            'token_url'   => $token_url,
+            'client_post' => $_SESSION['client_post'],
+            'server_response' => $_SESSION['server_response'],
+            'id_data'     => $_SESSION['id_data'],
         ]);
         break;
     default:

@@ -4,7 +4,7 @@
 date_default_timezone_set("UTC");
 session_start();
 
-require '../lib/shared.php';
+require '../shared/helpers.php';
 
 $path = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH);
 $ext  = pathinfo($path, PATHINFO_EXTENSION);
@@ -31,7 +31,7 @@ switch ($path) {
         if (!array_key_exists($client_id, $clients)) {
             return json_response([                
                 'error_code' => 'invalid_request',
-                'error' => "This is not a valid client_id"
+                'error' => "This is not a valid :client_id"
             ]);
         }
 
@@ -50,7 +50,7 @@ switch ($path) {
         if (!$row) {
             return json_response([                 
                 'error_code' => 'invalid_request',
-                "error" => 'The provided code is not valid',
+                "error" => 'The provided :code is not valid',
             ]);
         }
 
@@ -58,7 +58,7 @@ switch ($path) {
             logger("Code expired now=$now expiry={$row['expiration']}");
             return json_response([                 
                 'error_code' => 'invalid_request',
-                "error" => 'The authorization code has expired',
+                "error" => 'The provided :code has expired',
             ]);
             exit;
         }
@@ -67,7 +67,7 @@ switch ($path) {
         if (!hash_equals($proof, $row['code_challenge'])) {
             return json_response([  
                 'error_code' => 'invalid_request',
-                "error" => 'code_verifier was not verified',
+                "error" => 'The :code_verifier parameter was not verified',
             ]);
             exit;
         }
@@ -88,7 +88,7 @@ switch ($path) {
             $message =  $err->getMessage();
             // code_id is unique to prevent code reuse
             if ($message === "UNIQUE constraint failed: access_tokens.code_id") {
-                logger("Attempted code reuse code_id={$row['id']} ua={$_SERVER['HTTP_USER_AGENT']}");
+                logger("Attempted code reuse :code_id={$row['id']} ua={$_SERVER['HTTP_USER_AGENT']}");
                 return json_response([
                     'error_code' => 'invalid_request',
                     "error"      => $message,
@@ -128,20 +128,24 @@ switch ($path) {
         if (!array_key_exists($client_id, $clients)) {
             return view('authorize', [
                 'error_code' => 'invalid_request',
-                'error' => "This is not a valid client_id"
+                'error' => "This is not a valid :client_id"
             ]);
         }
 
-        if (!isset($_GET['state'])) {
+        if (!isset($_GET['state']) || empty($_GET['state'])) {
             return view('authorize', [
                 'error_code' => 'invalid_request',
-                'error' => "The state parameter is not set"
+                'error'      => "The :state parameter is not set"
             ]);
         }
 
         $code_challenge = $_GET['code_challenge'] ?? null;
-        if (is_null($challenge)) {
+        if (is_null($code_challenge) || empty($code_challenge)) {
             // @todo config for PKSE
+            return view('authorize', [
+                'error_code' => 'invalid_request',
+                'error'      => "The :code_challenge parameter is not set"
+            ]);
         }
 
         $state = preg_replace('[^a-z0-9]', "", $_GET['state'] ?? "");
@@ -185,7 +189,7 @@ switch ($path) {
         ]);
         break;
     default:
-        echo 'NOT FOUND';
+        echo 'NOT FOUND\n<br />';
         echo "$client_ip";
         die;
 }

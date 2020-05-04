@@ -60,7 +60,8 @@ function dbTableInsert($db, $table, $data)
 }
 
 function view($name, $data=[]) {
-    $__filename = "views/$name.php";
+    $here = dirname(__FILE__);
+    $__filename = "$here/views/$name.php";
     (function($vars) use ($__filename) {
         extract($vars);
         require $__filename;;
@@ -137,7 +138,36 @@ $clients = [
 ];
 
 $scopes = [
-    'photos'
+    'openid'
 ];
 
+$terms = [
+    'access_token'  => 'From server, Used by client to access resources on API OAuth server (required)',
+    'id_token'      => 'From Server, has identity is JWT',
+    'token_type'    => 'From server ... type of token',
+    'refresh_token' => 'From server ... (optional)',
+    'expires_in'    => 'From server, How long access_token is good for (recommended)',
+    'redirect_uri'  => 'What url on the client should the server redirect to. Should be match redirect_uri on server config',
+    'client_id'     => 'Randomly generated id server uses to recognize client',
+    'client_secret' => 'Random generated secret served checks against hash in storage',
+    'grant_type'    => 'options=[refresh_token,password,client_credentials,authorization_code,implicit]',
+    'code'          => 'Generated on the server for the client to redeem for an access token',
+    'response_mode' => "options=[fragment,query]",
+    'response_type' => "You can use options=[code,token,id_token token]",
+    'state'          => 'For CSRF protection, generated on the client and the server sends it back to client',
+    'scope'          => 'A space-delimited list of permissions that the application requires. (optional)',
+    'code_verifier'  => 'Client generated is a cryptographically random string using the characters A-Z, a-z, 0-9, and the punctuation characters -._~ (hyphen, period, underscore, and tilde), between 43 and 128 characters long. Used in first request by client for sending <code>code_challenge</code>',
+    'code_challenge' => 'Client sends this to server, a code challenge is a BASE64-URL-encoded string of the SHA256 hash of the code verifier',
+    'code_challenge_method' => 'Can be none or S256 ... please implement S256 options=[S256,plain]',
 
+];
+
+foreach($terms as $attr => $value) {
+    $terms[$attr] = trim($value);
+}
+
+
+function get_terms() {
+    global $terms;
+    return $terms;
+}

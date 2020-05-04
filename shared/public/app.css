@@ -1,0 +1,37 @@
+#app{
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+#authorize-window {
+    max-width: 400px;
+    padding: 40px;
+    margin: 0 auto;
+    background: #aaa;
+    border-radius: 4px;
+}
+body{
+    margin: 0;
+    padding: 20px;
+    border-top: solid 20px #fff;
+    font-family: Arial, sans-serif;
+}
+
+body[data-role="server"] {
+    border-top-color: red;
+}
+body[data-role="client"] {
+    border-top-color: blue;
+}
+
+pre {
+    word-break: break-all;
+    overflow: hidden;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+button {
+    padding: 8px 12px;
+    font-weight: bold;
+}

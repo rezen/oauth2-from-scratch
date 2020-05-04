@@ -4,4 +4,4 @@ RUN ln -s /etc/apache2/mods-available/rewrite.load /etc/apache2/mods-enabled/rew
 RUN mkdir -p /var/www/html/logs
 WORKDIR /var/www/html/
 ENV PORT 3000
-CMD sed -i "s/80/$PORT/g" /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf && docker-php-entrypoint apache2-foreground
+CMD sed -i "s/80/$PORT/g" /etc/apache2/ports.conf && docker-php-entrypoint apache2-foreground

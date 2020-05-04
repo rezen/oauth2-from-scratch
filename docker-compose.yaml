@@ -10,9 +10,11 @@ services:
     environment: 
       - APP_SECRET=NotReallySecretIsItNow
       - PORT=4444
+      - OAUTH_ROLE=server
     volumes:
       - ./server:/var/www/html/
-      - ./lib:/var/www/lib
+      - ./shared:/var/www/shared
+      - ./apache-config.conf:/etc/apache2/sites-enabled/000-default.conf
 
     ports:
       - "4444:4444"
@@ -25,10 +27,11 @@ services:
       args:
         buildno: 1
     environment: 
+      - OAUTH_ROLE=client
       - PORT=4443
     volumes:
       - ./client:/var/www/html/
-      - ./lib:/var/www/lib
-
+      - ./shared:/var/www/shared
+      - ./apache-config.conf:/etc/apache2/sites-enabled/000-default.conf
     ports:
       - "4443:4443"

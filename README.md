@@ -26,7 +26,7 @@ open http://localhost:4443/
 
 
 ### Samples
-Google Auth2
+#### Google Auth2  
 **Request**
 ```
 GET https://accounts.google.com/signin/oauth?response_type=code&redirect_uri=https://samples.auth0.com/login/callback&scope=email+profile&state=a5k7sn9vtCrbgw_GytF4Y5g5NoWwA&client_id=969181497182-f7em2i6hlg66sq2hnm8f77r58pm02km9.apps.googleusercontent.com&o2v=1&as=5AwY6s38-uPbtTTCr8f6lw HTTP/1.1
