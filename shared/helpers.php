@@ -144,7 +144,7 @@ function parseJwt($data)
     [$header, $data, $signature] = $parts;
 
     // @todo what if not valid json
-    return json_decode($data);
+    return [json_decode($header), json_decode($data)];
 }
 
 

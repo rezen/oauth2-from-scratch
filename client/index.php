@@ -132,10 +132,13 @@ switch ($path) {
                 'error' => $data->error ?? $data->error_code,
             ]);
         }
+        [$header, $payload] = parseJwt($data->id_token);
         $_SESSION['client_post']  =  $data_string;
         $_SESSION['server_response']  =  $data;
         $_SESSION['access_token'] = $data->access_token;
-        $_SESSION['id_data']      = parseJwt($data->id_token);
+        $_SESSION['jwt_payload'] = $payload;
+        $_SESSION['jwt_header'] = $header;
+    
         unset($_SESSION['state']);
         unset($_SESSION['code_verifier']);
 
@@ -159,13 +162,14 @@ switch ($path) {
         $tokens = getRecentTokens($db);
     
         view('dashboard', [
-            'codes'       => $codes,
-            'tokens'      => $tokens,
-            'title'       => 'dashboard',
-            'token_url'   => $token_url,
-            'client_post' => $_SESSION['client_post'],
+            'codes'           => $codes,
+            'tokens'          => $tokens,
+            'title'           => 'dashboard',
+            'token_url'       => $token_url,
+            'client_post'     => $_SESSION['client_post'],
             'server_response' => $_SESSION['server_response'],
-            'id_data'     => $_SESSION['id_data'],
+            'jwt_payload'     => $_SESSION['jwt_payload'],
+            'jwt_header'      => $_SESSION['jwt_header'],
         ]);
         break;
     default:

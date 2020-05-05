@@ -10,7 +10,7 @@
 <ul>
     <li>Verify <code>state</code> matches the state original state</li>
 </ul>
-<pre><?php print_r($id_data); ?></pre>
+<pre><?php print_r($jwt_payload); ?></pre>
 
 <strong><?php echo $token_url; ?></strong>
 <h4>Client Request</h4>
