@@ -26,6 +26,7 @@ switch ($path) {
         $client_id     = $_POST['client_id'] ?? null;
         $client_secret = $_POST['client_secret'] ?? null;
         $code          = $_POST['code'] ?? null;
+        $nonce         = $_POST['nonce'] ?? null;
         $code_verifier = $_POST['code_verifier'] ?? null;
         $now           = time();
         
@@ -137,7 +138,7 @@ switch ($path) {
                 'aud'       => "@todo-api-server-token-applies-to",
                 'iat'       => $iat,
                 'exp'       => $iat + $expires_in,
-                // 'nonce' => 'TODO',
+                'nonce'     => $nonce,
                 "data" => [
                     'user_id' => $user_id,
                 ],
@@ -223,6 +224,11 @@ switch ($path) {
         ]);
         break;
     case '/server/oauth/authorize/consent':
+        if (empty($_SESSION)) {
+            echo 'nothing here';
+            return;
+        }
+
         dbTableInsert($db, 'auth_access_codes', $_SESSION['access_code']);
         $redirect_url = $_SESSION['redirect_url'];
         unset($_SESSION);
@@ -230,7 +236,7 @@ switch ($path) {
 
         header("Pragma: no-cache");
         header("Cache-Control: no-cache, no-store, max-age=0, must-revalidate");
-        // header("Location: $redirect_url", true, 302);
+        header("Location: $redirect_url", true, 302);
         return view('redirect', [
             'redirect_url' => $redirect_url . '&step=1',
         ]);

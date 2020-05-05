@@ -1,13 +1,16 @@
 <?php require 'inc/header.php'; ?>
 
 <a href="/client/logout">Logout</a>
-<pre><?php print_r($id_data); ?></pre>
+<pre><?php echo json_encode($id_data, JSON_PRETTY_PRINT); ?></pre>
+
+<h4>Codes</h4>
 <?php partial("table", [
     'attrs' => ['client_id', 'code', 'scope', 'code_challenge', 'expiration', 'used_at'],
     'rows'  => $codes,
 ]);
 ?>
 
+<h4>Tokens</h4>
 <?php partial("table", [
     'attrs' => ['client_id', 'code_id', 'scope', 'key', 'expiration'],
     'rows'  => $tokens,

@@ -25,6 +25,7 @@ switch ($path) {
         $key   = "id1";
 
         if (!isset($_SESSION['state'])) {
+            $_SESSION['nonce']         = md5(random_bytes(24));
             $_SESSION['state']         = md5(random_bytes(24));
             $_SESSION['code_verifier'] = base64UrlEncode(random_bytes(24));
         }
@@ -34,6 +35,7 @@ switch ($path) {
             'response_type'  => 'code', // code|token|id_token token
             'response_mode'  => 'query', // query,fragment
             'state'          => $_SESSION['state'],
+            'nonce'          => $_SESSION['nonce'],
             'scope'          => 'openid',
             'redirect_uri'   => $clients[$key]['redirect'],
             'code_challenge' => hash("sha256", base64UrlEncode($_SESSION['code_verifier'])),
@@ -77,6 +79,7 @@ switch ($path) {
             'redirect_uri'  => 'TODO',
             'code'          => $_GET['code'],
             "code_verifier" => $_SESSION['code_verifier'],
+            'nonce'         => $_SESSION['nonce'],
         ];
 
         $data_string = http_build_query($data);
@@ -112,8 +115,9 @@ switch ($path) {
         $response = curl_exec($ch);
         
         if ($response === false) {
-            echo 'Curl error: ' . curl_error($ch);
-            break;
+            return view("error", [
+                'error' => curl_error($ch),
+            ]);
         }
 
         // Then, after your curl_exec call:
@@ -122,6 +126,7 @@ switch ($path) {
         $body        = substr($response, $header_size);
         $data        = json_decode($body);
 
+        // @todo check for json parse errors
         if (isset($data->error_code)) {
             return view("error", [
                 'error' => $data->error ?? $data->error_code,
@@ -147,7 +152,7 @@ switch ($path) {
 
     case '/client/dashboard':
         if (empty($_SESSION['access_token'])) {
-            header("Location: /client/start");
+            header("Location: /client/start?error=access_denied");
             exit;
         }
         $codes  = getRecentCodes($db);

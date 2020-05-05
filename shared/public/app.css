@@ -107,3 +107,16 @@ code{
     font-size: 14px;
     color: rgb(55, 103, 55);
 }
+
+.table {
+    width: 100%;
+    border-collapse: collapse; border-spacing: 0;
+}
+.table th {
+    border-bottom: solid 2px #aaa;
+}
+.table td,
+.table th {
+    padding: 6px 8px;
+    text-align: center;
+}

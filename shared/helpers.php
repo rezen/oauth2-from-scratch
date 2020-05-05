@@ -46,8 +46,7 @@ function dbTableInsert($db, $table, $data)
     $stmt = $db->prepare($sql);
    
     if (!$stmt) {
-        echo "\nPDO::errorInfo():\n";
-        print_r($db->errorInfo());
+        throw new Exception($db->errorInfo());
     }
 
     foreach($data as $key => $value) {
