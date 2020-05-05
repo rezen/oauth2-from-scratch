@@ -152,7 +152,7 @@ $terms = [
     'client_secret' => 'Random generated secret served checks against hash in storage',
     'grant_type'    => 'options=[refresh_token,password,client_credentials,authorization_code,implicit]',
     'code'          => 'Generated on the server for the client to redeem for an access token',
-    'response_mode' => "options=[fragment,query]",
+    'response_mode' => "options=[fragment,query,form_data]",
     'response_type' => "You can use options=[code,token,id_token token]",
     'state'          => 'For CSRF protection, generated on the client and the server sends it back to client',
     'scope'          => 'A space-delimited list of permissions that the application requires. (optional)',

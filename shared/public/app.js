@@ -60,9 +60,7 @@
                 hint: false
             }
         },
-        template: `<section v-if="hint" style="background:#eee;padding:20px">
-                <div v-html="hint"></div>
-                </section>`,
+        template: `<section v-if="hint" v-html="hint" class="hint-wrapper"></section>`,
         created: function() {
             this.hint = terms[this.param] || false;
         },
@@ -89,7 +87,7 @@
 
         template: `<form>
             <button type="submit">Next</button>
-        <todo-item v-bind:set-params="params"></todo-item>
+        <params-formatted v-bind:set-params="params"></params-formatted>
             </form>`,
         created: function() {
             this.original = this.$slots.default[0].text;
@@ -98,7 +96,7 @@
         },
     });
 
-    Vue.component('todo-item', {
+    Vue.component('params-formatted', {
         props: ['set-params', 'fmt'],
         data: function() {
             const text = ((this.$slots.default || [])[0] || {}).text;
@@ -132,7 +130,7 @@
         <h5>Raw</h5>
         <pre style="background:#eee;padding:20px;">{{ query_formatted }}</pre>
         <section style="background:#eee;padding:20px;">
-        <div v-for="p in params" :key="p.name" :data-key="p.name">
+        <div v-for="p in params" :key="p.name" :data-key="p.name" class="oauth-param">
 <strong>{{ p.name }}</strong>
     <input v-if="p.options.length==0" type="text" v-model="p.value" :name="p.name" />
 <select v-if="p.options.length!==0" v-model="p.value" :name="p.name">

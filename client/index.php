@@ -67,8 +67,9 @@ switch ($path) {
                 'error' => "The :state parameter does not match",
             ]);
         }
+
+        
         $key = "id1";
-        // 
         $data = [
             'grant_type'    =>'authorization_code',
             'client_id'     => $clients[$key]['id'],
@@ -79,9 +80,19 @@ switch ($path) {
         ];
 
         $data_string = http_build_query($data);
+
+        if (isset($_GET['step']) && $_GET['step'] === "1") {
+
+            return view('step_1', [
+                'title'       => 'Step 1',
+                'token_url'   => $token_url,
+                'client_post' => $data_string,
+                'server_response' => $_SESSION['server_response'],    
+            ]);        
+        }
+
         $ch = curl_init();
 
-        
         // For demo of expiring tokens
         if (isset($_GET['sleep'])) {
             set_time_limit(10);

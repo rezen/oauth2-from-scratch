@@ -26,6 +26,11 @@ open http://localhost:4443/
 
 
 ### Samples
+Here are links to docs of some specific providers
+- https://developer.github.com/v3/guides/basics-of-authentication/
+- https://developers.google.com/identity/protocols/oauth2/openid-connect
+- https://docs.microsoft.com/en-us/azure/active-directory-b2c/openid-connect
+
 #### Google Auth2  
 **Request**
 ```

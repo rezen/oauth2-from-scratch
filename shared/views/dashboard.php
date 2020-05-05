@@ -5,9 +5,9 @@
 
 <strong><?php echo $token_url; ?></strong>
 <h4>Client Request</h4>
-<todo-item><?php echo urldecode($client_post); ?></todo-item>
+<params-formatted><?php echo urldecode($client_post); ?></params-formatted>
 
 <h4>Server Response</h4>
-<todo-item fmt="json"><?php echo json_encode($server_response, JSON_PRETTY_PRINT); ?></todo-item>
+<params-formatted fmt="json"><?php echo json_encode($server_response, JSON_PRETTY_PRINT); ?></params-formatted>
 
 <?php require 'inc/footer.php'; ?>

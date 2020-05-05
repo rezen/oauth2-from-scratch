@@ -5,7 +5,7 @@ $color = $role === "server" ? "red" : "blue";
 ?>
 <html>
     <head>
-        <title><?php echo $title ?? "client"; ?></title>
+        <title><?php echo strtoupper($role); ?> - <?php echo $title ?? "client"; ?></title>
         <link rel="stylesheet" type="text/css" href="/public/app.css">
         <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
         <script>const terms=<?php echo json_encode(get_terms()); ?>;</script>
