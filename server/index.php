@@ -102,9 +102,9 @@ switch ($path) {
         
         try {
             dbTableInsert($db, 'access_tokens', [
-                'user_id'    => $user_id,
+                'user_id'    => (int) $user_id,
                 'client_id'  => $client_id,
-                'key'        => $key,
+                'token'        => $key,
                 'scope'      => $row['scope'],
                 'expiration' => $iat + $expires_in,
                 'code_id'    => (int) $row['id'], // @todo make code_id unique column

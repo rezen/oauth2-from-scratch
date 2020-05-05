@@ -1,16 +1,22 @@
 <?php
 
-$secret = getenv("APP_SECRET");
-$here   = dirname(__FILE__);
+$secret   = getenv("APP_SECRET");
+$here     = dirname(__FILE__);
+$user     = getenv("DB_USER");
+$password = getenv("DB_PASSWORD");
+$dbhost   = getenv("DB_HOST");
+$dsn      = "mysql:host=$dbhost;port=3306;dbname=oauth2";
 
-$db = new PDO("sqlite:$here/database.db");
+
+$db = new PDO($dsn, $user, $password);
+
 # @todo revoked_at
 $db->exec('CREATE TABLE IF NOT EXISTS access_tokens (
-    id   INTEGER PRIMARY KEY,
+    id   INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,
     user_id INTEGER NOT NULL,
     client_id TEXT NOT NULL,
     code_id INTEGER NOT NULL,
-    key TEXT NOT NULL,
+    token TEXT NOT NULL,
     scope TEXT NOT NULL,
     expiration INTEGER NOT NULL,
     UNIQUE(code_id)
@@ -18,7 +24,7 @@ $db->exec('CREATE TABLE IF NOT EXISTS access_tokens (
 
 // @todo include device/ip?
 $db->exec('CREATE TABLE IF NOT EXISTS auth_access_codes (
-    id   INTEGER PRIMARY KEY,
+    id   INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,
     user_id INTEGER NOT NULL,
     client_id TEXT NOT NULL,
     scope TEXT NOT NULL,
@@ -29,7 +35,7 @@ $db->exec('CREATE TABLE IF NOT EXISTS auth_access_codes (
   );');
 
 $db->exec('CREATE TABLE IF NOT EXISTS clients (
-    id   INTEGER PRIMARY KEY,
+    id   INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,
     client_id TEXT NOT NULL,
     client_secret_hash TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -40,22 +46,22 @@ function dbTableInsert($db, $table, $data)
 {
     $keys = array_keys($data);
     $bindings = array_map(function($k) {
+        return "?";
         return ":". $k;
     }, $keys);
-    $sql = "INSERT INTO $table(" . implode(", ", $keys) . ') VALUES('. implode(", ", $bindings) .')';
+    $sql = "INSERT INTO $table (" . implode(", ", $keys) . ') VALUES ('. implode(", ", $bindings) .')';
     $stmt = $db->prepare($sql);
    
+    
     if (!$stmt) {
-        throw new Exception($db->errorInfo());
+        throw new Exception("Prepare - " .  $db->errorInfo() . " $sql");
     }
+  
 
-    foreach($data as $key => $value) {
-        $stmt->bindValue(':' . $key, $value);
-    }
-    $success =  $stmt->execute();
+    $success =  $stmt->execute(array_values($data));
 
     if (!$success) {
-        throw new Exception($stmt->errorInfo()[2]);
+        throw new Exception("Execute - " .$stmt->errorInfo()[2] . " $sql");
     }
 }
 

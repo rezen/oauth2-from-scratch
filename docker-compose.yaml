@@ -1,14 +1,18 @@
-version: '2'
+version: '3'
 services:
   server:
-    depends_on: []
+    depends_on: [database]
     build:
       context: ./
       dockerfile: Dockerfile
-      args:
-        buildno: 1
+      args: []
+    links:
+      - "database:db"
     environment: 
       - APP_SECRET=NotReallySecretIsItNow
+      - DB_HOST=database
+      - DB_USER=username
+      - DB_PASSWORD=secret
       - PORT=4444
       - OAUTH_ROLE=server
     volumes:
@@ -20,14 +24,18 @@ services:
       - "4444:4444"
 
   client:
-    depends_on: []
+    depends_on: [database]
     build:
       context: ./
       dockerfile: Dockerfile
-      args:
-        buildno: 1
+      args: []
+    links:
+      - "database:db"
     environment: 
       - OAUTH_ROLE=client
+      - DB_HOST=database
+      - DB_USER=username
+      - DB_PASSWORD=secret
       - PORT=4443
     volumes:
       - ./client:/var/www/html/
@@ -35,3 +43,18 @@ services:
       - ./apache-config.conf:/etc/apache2/sites-enabled/000-default.conf
     ports:
       - "4443:4443"
+
+  database:
+    image: mysql:5.7.22
+    tty: true
+    environment:
+      - "MYSQL_DATABASE=oauth2"
+      - "MYSQL_USER=username"
+      - "MYSQL_PASSWORD=secret"
+      - "MYSQL_ROOT_PASSWORD=secret"
+    volumes:
+      - db_for_oauth2:/var/lib/mysql/
+      - ./my.cnf:/etc/mysql/my.cnf
+volumes:
+  db_for_oauth2:
+    driver: local

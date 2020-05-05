@@ -4,6 +4,7 @@ The best way to learn about a OpenConnectID (OAuth2+OpenConnect) is to implement
 ## Run
 ```sh
 cd ./oauth2-from-scratch
+touch shared/log.txt && chmod 0777 # ... Docker permissions 
 docker-compose up -d
 open http://localhost:4443/
 ```

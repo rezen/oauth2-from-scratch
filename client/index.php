@@ -126,6 +126,11 @@ switch ($path) {
         $body        = substr($response, $header_size);
         $data        = json_decode($body);
 
+        if (json_last_error()) {
+            return view("error", [
+                'error' => $body,
+            ]);
+        }
         // @todo check for json parse errors
         if (isset($data->error_code)) {
             return view("error", [

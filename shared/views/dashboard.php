@@ -11,7 +11,7 @@
 
 <h4>Tokens</h4>
 <?php partial("table", [
-    'attrs' => ['client_id', 'code_id', 'scope', 'key', 'expiration'],
+    'attrs' => ['client_id', 'code_id', 'scope', 'token', 'expiration'],
     'rows'  => $tokens,
 ]);
 ?>
