@@ -6,6 +6,10 @@
     is going to post the <code>code</code> as well as the original <code>code_verifier</code>
     used to create the <code>code_challenge</code> sent in the first request.
 </p>
+<h2>Actions</h2>
+<ul>
+    <li>Verify <code>state</code> matches the state original state</li>
+</ul>
 <pre><?php print_r($id_data); ?></pre>
 
 <strong><?php echo $token_url; ?></strong>

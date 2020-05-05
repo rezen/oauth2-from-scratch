@@ -23,7 +23,14 @@ Cache-Control: no-cache
 X-Request-Id: fe128a77-79f6-41a4-abc0-68ca4239e6f4
 Location: https://github.com/login/oauth/authorize?client_id=1d46d447dfcd2ccd7b18&redirect_uri=https%3A%2F%2Fcodepen.io%2Fauth%2Fgithub%2Fcallback&response_type=code&scope=user%3Aemail%2Cgist&state=dab7e5198c4ad9f322b2b8ffde259316c61a2648e5bc35ae
 </pre>
-    
+<h2>Actions</h2>
+<ul>
+    <li>Generate <code>state</code> to include in request and store in session for later use</li>
+    <li>Generate <code>code_verifier</code> and store in session for later use</li>
+    <li>Generate <code>code_challenge</code> derived from  <code>code_verifier</code></li>
+    <li>Include <code>scope</code> for specifying data you need access to </li>
+</ul>
+
     <h4>Try</h4>
     <p>
         With that intro, let's take a look at the request below. 

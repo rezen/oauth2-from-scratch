@@ -8,6 +8,7 @@ $db = new PDO("sqlite:$here/database.db");
 $db->exec('CREATE TABLE IF NOT EXISTS access_tokens (
     id   INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,
+    client_id TEXT NOT NULL,
     code_id INTEGER NOT NULL,
     key TEXT NOT NULL,
     scope TEXT NOT NULL,
@@ -15,7 +16,7 @@ $db->exec('CREATE TABLE IF NOT EXISTS access_tokens (
     UNIQUE(code_id)
   );');
 
-
+// @todo include device/ip?
 $db->exec('CREATE TABLE IF NOT EXISTS auth_access_codes (
     id   INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -59,9 +60,61 @@ function dbTableInsert($db, $table, $data)
     }
 }
 
+
+function dbTableRows($db, $table) {
+    $table = preg_replace('[^a-z0-9_]', "", $table);
+    $stmt = $db->prepare("SELECT * FROM `{$table}` WHERE 1=1");
+    if (!$stmt) {
+        return [null, $db->errorInfo()];
+    }
+    $stmt->execute();
+    $rows =[];
+    while ($row = $stmt->fetch()) {
+        $rows[] = $row;
+    }
+
+    return [$rows, null];
+}
+
+function getRecentCodes($db) {
+    $stmt = $db->prepare("SELECT * FROM auth_access_codes WHERE 1=1 AND expiration >= :past ORDER BY expiration DESC LIMIT 100");
+    $stmt->bindValue(':' . $key, $value);
+    $stmt->execute([
+        'past' => time() - 7200,
+    ]);
+    $rows =[];
+    while ($row = $stmt->fetch()) {
+        $rows[] = $row;
+    }
+    return $rows;   
+}
+
+function getRecentTokens($db) {
+    $stmt = $db->prepare("SELECT * FROM access_tokens WHERE 1=1 AND expiration >= :past ORDER BY expiration DESC LIMIT 100");
+    $stmt->bindValue(':' . $key, $value);
+    $stmt->execute([
+        'past' => time() - 7200,
+    ]);
+    $rows =[];
+    while ($row = $stmt->fetch()) {
+        $rows[] = $row;
+    }
+    return $rows;   
+}
+
 function view($name, $data=[]) {
     $here = dirname(__FILE__);
     $__filename = "$here/views/$name.php";
+    (function($vars) use ($__filename) {
+        extract($vars);
+        require $__filename;;
+    })($data);
+}
+
+
+function partial($name, $data) {
+    $here = dirname(__FILE__);
+    $__filename = "$here/views/partials/$name.php";
     (function($vars) use ($__filename) {
         extract($vars);
         require $__filename;;
@@ -145,8 +198,8 @@ $terms = [
     'access_token'  => 'From server, Used by client to access resources on API OAuth server (required)',
     'id_token'      => 'From Server, has identity is JWT',
     'token_type'    => 'From server ... type of token',
-    'refresh_token' => 'From server ... (optional)',
-    'expires_in'    => 'From server, How long access_token is good for (recommended)',
+    'refresh_token' => 'From server ... token that can be used to acquire a new access token when the original expires. Do not provide for response_type=token (optional)',
+    'expires_in'    => 'From server, How long access_token is good for TTL integer (recommended)',
     'redirect_uri'  => 'What url on the client should the server redirect to. Should be match redirect_uri on server config',
     'client_id'     => 'Randomly generated id server uses to recognize client',
     'client_secret' => 'Random generated secret served checks against hash in storage',
@@ -159,7 +212,9 @@ $terms = [
     'code_verifier'  => 'Client generated is a cryptographically random string using the characters A-Z, a-z, 0-9, and the punctuation characters -._~ (hyphen, period, underscore, and tilde), between 43 and 128 characters long. Used in first request by client for sending <code>code_challenge</code>',
     'code_challenge' => 'Client sends this to server, a code challenge is a BASE64-URL-encoded string of the SHA256 hash of the code verifier',
     'code_challenge_method' => 'Can be none or S256 ... please implement S256 options=[S256,plain]',
-
+    'nonce' =>	'A value that is returned in the ID token. It is used to mitigate replay attacks.',
+    'prompt' => 'options=[none,consent,login]',
+    'login_hint' => 'A username to prepopulate if prompting for authentication.',
 ];
 
 foreach($terms as $attr => $value) {

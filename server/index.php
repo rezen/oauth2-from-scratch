@@ -20,6 +20,7 @@ $paths = [
 
 switch ($path) {
     case '/server/oauth/token':
+        session_regenerate_id(true);
         header("HTTP/1.1 200 OK");
         $grant_type    = $_POST['grant_type'] ?? null; // refresh_token,password,client_credentials,authorization_code,implicit
         $client_id     = $_POST['client_id'] ?? null;
@@ -28,18 +29,21 @@ switch ($path) {
         $code_verifier = $_POST['code_verifier'] ?? null;
         $now           = time();
         
+        // Verify this is a read client_id
         if (!array_key_exists($client_id, $clients)) {
             return json_response([                
-                'error_code' => 'invalid_request',
+                'error_code' => 'invalid_client',
                 'error' => "This is not a valid :client_id"
             ]);
         }
 
         $stmt = $db->prepare("SELECT * FROM auth_access_codes WHERE client_id=:client_id AND code=:code");
+        
+        // For debugging purposes ... don't do this in a real project
         if (!$stmt) {
             return json_response([                
                 'error_code' => 'server_error',
-                'error'      => $db->errorInfo(), // @todo don't ever do this fo' real
+                'error'      => $db->errorInfo(), 
             ]);
         }
         $stmt->execute([
@@ -47,6 +51,8 @@ switch ($path) {
             'code'      => $code,
         ]); 
         $row = $stmt->fetch();
+
+        // Invalid code provided
         if (!$row) {
             return json_response([                 
                 'error_code' => 'invalid_request',
@@ -54,6 +60,7 @@ switch ($path) {
             ]);
         }
 
+        // Attempting to use use expired code
         if ($now >= $row['expiration']) {
             logger("Code expired now=$now expiry={$row['expiration']}");
             return json_response([                 
@@ -63,6 +70,21 @@ switch ($path) {
             exit;
         }
 
+        $stmt = $db->prepare("UPDATE auth_access_codes SET used_at=:now WHERE id=:id");
+   
+        if (!$stmt) {
+            return json_response([                
+                'error_code' => 'server_error',
+                'error'      => $db->errorInfo(), 
+            ]);
+        }
+
+        $stmt->execute([
+            'id' => $row['id'], 
+            'now' => time()
+        ]);
+
+        // Verify code_verifier for PKSE
         $proof = hash("sha256", base64UrlEncode($code_verifier));
         if (!hash_equals($proof, $row['code_challenge'])) {
             return json_response([  
@@ -72,6 +94,7 @@ switch ($path) {
             exit;
         }
 
+        // Opaque key used by applications
         $key  = md5(random_bytes(24));
         $iat  =  time();
         $expires_in = 3600;
@@ -79,6 +102,7 @@ switch ($path) {
         try {
             dbTableInsert($db, 'access_tokens', [
                 'user_id'    => $user_id,
+                'client_id'  => $client_id,
                 'key'        => $key,
                 'scope'      => $row['scope'],
                 'expiration' => $iat + $expires_in,
@@ -100,22 +124,25 @@ switch ($path) {
             ]);
         }
 
-        header("Cache-Control: no-store");
+        header("Cache-Control: no-cache, no-store, max-age=0, must-revalidate");
         header("Pragma: no-cache");
         return json_response([
             "access_token" => $key,
             "id_token" => generateJwt($secret, [
                 // https://www.iana.org/assignments/jwt/jwt.xhtml#claims
-                'iss' => 'http://todo',
-                'sub' => "user:$user_id",
-                'aud' => 'TODO',
-                'iat' => $iat,
-                'exp' => $iat + $expires_in,
+                'iss'       => "http://$server_ip",
+                'uid'       => "$user_id",
+                'sub'       => "user:$user_id",
+                'client_id' => $client_id,
+                'aud'       => "@todo-api-server-token-applies-to",
+                'iat'       => $iat,
+                'exp'       => $iat + $expires_in,
+                // 'nonce' => 'TODO',
                 "data" => [
                     'user_id' => $user_id,
                 ],
             ]),
-            "scope"      => "openid",
+            "scope"      => $row['scope'],
             "expires_in" => $expires_in,
             "token_type" => "Bearer"
         ]);
@@ -127,11 +154,12 @@ switch ($path) {
 
         if (!array_key_exists($client_id, $clients)) {
             return view('authorize', [
-                'error_code' => 'invalid_request',
-                'error' => "This is not a valid :client_id"
+                'error_code' => 'invalid_client',
+                'error'      => "This is not a valid :client_id"
             ]);
         }
 
+        // For strictness ... require the client to sent state
         if (!isset($_GET['state']) || empty($_GET['state'])) {
             return view('authorize', [
                 'error_code' => 'invalid_request',
@@ -139,25 +167,26 @@ switch ($path) {
             ]);
         }
 
+        // Needed for PKSE
         $code_challenge = $_GET['code_challenge'] ?? null;
         if (is_null($code_challenge) || empty($code_challenge)) {
-            // @todo config for PKSE
             return view('authorize', [
                 'error_code' => 'invalid_request',
                 'error'      => "The :code_challenge parameter is not set"
             ]);
         }
 
-        $state = preg_replace('[^a-z0-9]', "", $_GET['state'] ?? "");
+        $state = preg_replace('[^A-Za-z0-9_-]', "", $_GET['state'] ?? "");
 
         $client = $clients[$client_id];
-        $scope  =  preg_replace('[^a-z0-9_-]', "", $_GET['scope'] ?? "");
+        $scope  = preg_replace('[^A-Za-z0-9_-: ]', "", $_GET['scope'] ?? "");
        
         $redirect_url    = $client['redirect'];
         $redirect_params = explode("?", pathinfo($redirect_url, PHP_URL_QUERY))[1] ?? "";
         $redirect_url    = strtok($redirect_url, '?');
         
         $params = [];
+        // Get params from redirect uri
         parse_str($redirect_params, $params);
         $params['code']   = $code = md5(random_bytes(24));
         $params['state']  = $state;
@@ -166,18 +195,23 @@ switch ($path) {
         
         // For demoing expiration ... make short expiration
         if (isset($_GET['sleep'])) {
-            echo "Fix that expire";
             $expiration = $expiration - 58;
         }
 
-        dbTableInsert($db, 'auth_access_codes', [
+        $separator = $response_mode === "fragment" ? "#" : "?";
+
+        $_SESSION['access_code'] = [
             'client_id'      => $client_id,
             'scope'          => $scope,
             'code'           => $code,
             'expiration'     => $expiration,
             'user_id'        => $user_id,
             'code_challenge' => $code_challenge,
-        ]);
+        ];
+
+        $_SESSION['redirect_url'] = "{$redirect_url}{$separator}{$query}";
+
+   
         # For cancel ...
         # error=access_denied
         # error_description=Forbidden
@@ -188,6 +222,18 @@ switch ($path) {
             'redirect_url' => "{$redirect_url}{$separator}{$query}",
         ]);
         break;
+    case '/server/oauth/authorize/consent':
+        dbTableInsert($db, 'auth_access_codes', $_SESSION['access_code']);
+        $redirect_url = $_SESSION['redirect_url'];
+        unset($_SESSION);
+        session_destroy();
+
+        header("Pragma: no-cache");
+        header("Cache-Control: no-cache, no-store, max-age=0, must-revalidate");
+        // header("Location: $redirect_url", true, 302);
+        return view('redirect', [
+            'redirect_url' => $redirect_url . '&step=1',
+        ]);
     default:
         echo 'NOT FOUND\n<br />';
         echo "$client_ip";

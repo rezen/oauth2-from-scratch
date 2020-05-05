@@ -80,16 +80,18 @@ switch ($path) {
         ];
 
         $data_string = http_build_query($data);
-
+        $codes = getRecentCodes($db);
+        /*
         if (isset($_GET['step']) && $_GET['step'] === "1") {
-
             return view('step_1', [
                 'title'       => 'Step 1',
+                'codes'       => $codes,
                 'token_url'   => $token_url,
                 'client_post' => $data_string,
                 'server_response' => $_SESSION['server_response'],    
             ]);        
         }
+        */
 
         $ch = curl_init();
 
@@ -148,7 +150,12 @@ switch ($path) {
             header("Location: /client/start");
             exit;
         }
+        $codes  = getRecentCodes($db);
+        $tokens = getRecentTokens($db);
+    
         view('dashboard', [
+            'codes'       => $codes,
+            'tokens'      => $tokens,
             'title'       => 'dashboard',
             'token_url'   => $token_url,
             'client_post' => $_SESSION['client_post'],
