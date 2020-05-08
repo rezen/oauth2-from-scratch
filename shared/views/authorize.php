@@ -29,6 +29,13 @@
         <li>Validate <code>response_type</code></li>
         <li>Validate <code>response_mode</code></li>
         <li>Show the user the requested <code>scope</code></li>
+        <li>Show user org & developer info so phishing is harder
+
+            <ul>
+                <li>Show domain of redirect</li>
+                <li>Blacklist names for app</li>
+            </ul>
+        </li>
         <li>
             Generate access <code>code</code> which will be sent back to client
             <ul>
@@ -40,9 +47,17 @@
     </ul>
 
     <section id="authorize-window">
-        Can <strong><?php echo $name; ?></strong>
+        Can <strong><?php echo $client->name; ?></strong>
         access <strong><?php echo $scope; ?></strong>
+        <br />
+        Will send data to 
+        <span style="margin:4px 0;display: inline-block;background:#333;padding: 6px 8px;border-radius:4px;font-size:12px;color:#fff">
+            <?php echo parse_url($client->redirect, PHP_URL_SCHEME); ?>://<?php echo parse_url($client->redirect, PHP_URL_HOST); ?>
+        </span>
+        <br />
+        <br />
         <a href="/server/oauth/authorize/consent">Yes</a>
+
     </section>
     <oauth-client-play action="http://localhost:4443/client/cb"><?php echo urldecode($redirect_url . "&step=1"); ?></oauth-client-play>
 

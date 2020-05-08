@@ -22,7 +22,7 @@ switch ($path) {
     case '/server/oauth/token':
         session_regenerate_id(true);
         header("HTTP/1.1 200 OK");
-        $grant_type    = $_POST['grant_type'] ?? null; // refresh_token,password,client_credentials,authorization_code,implicit
+        $grant_type    = $_POST['grant_type'] ?? null; // refresh_token,client_credentials,authorization_code
         $client_id     = $_POST['client_id'] ?? null;
         $client_secret = $_POST['client_secret'] ?? null;
         $code          = $_POST['code'] ?? null;
@@ -35,6 +35,14 @@ switch ($path) {
             return json_response([                
                 'error_code' => 'invalid_client',
                 'error' => "This is not a valid :client_id"
+            ]);
+        }
+
+        // Verify valid secret
+        if (!hash_equals($clients[$client_id]['secret']  ?? "", $client_secret)) {
+            return json_response([                
+                'error_code' => 'invalid_client_client',
+                'error'      => "This is not a valid :client_secret"
             ]);
         }
 
@@ -80,13 +88,20 @@ switch ($path) {
             ]);
         }
 
-        $stmt->execute([
+        $success = $stmt->execute([
             'id' => $row['id'], 
-            'now' => time()
+            'now' => date("Y-m-d H:i:s"),
         ]);
 
+        if (!$success) {
+            return json_response([                
+                'error_code' => 'server_error',
+                'error'      => $stmt->errorInfo()[2], 
+            ]);        
+        }
+
         // Verify code_verifier for PKSE
-        $proof = hash("sha256", base64UrlEncode($code_verifier));
+        $proof = hash(HASH_ALGO, base64UrlEncode($code_verifier));
         if (!hash_equals($proof, $row['code_challenge'])) {
             return json_response([  
                 'error_code' => 'invalid_request',
@@ -96,18 +111,18 @@ switch ($path) {
         }
 
         // Opaque key used by applications
-        $key  = md5(random_bytes(24));
-        $iat  =  time();
+        $token  = base64UrlEncode(random_bytes(128));
+        $iat    = time();
         $expires_in = 3600;
         
         try {
-            dbTableInsert($db, 'access_tokens', [
+            DB::insert($db, 'access_tokens', [
                 'user_id'    => (int) $user_id,
                 'client_id'  => $client_id,
-                'token'        => $key,
+                'token_hash' => defaultHash($token),
                 'scope'      => $row['scope'],
                 'expiration' => $iat + $expires_in,
-                'code_id'    => (int) $row['id'], // @todo make code_id unique column
+                'code_id'    => (int) $row['id'],
             ]);
         } catch (Exception $err) {
             $message =  $err->getMessage();
@@ -128,8 +143,8 @@ switch ($path) {
         header("Cache-Control: no-cache, no-store, max-age=0, must-revalidate");
         header("Pragma: no-cache");
         return json_response([
-            "access_token" => $key,
-            "id_token" => generateJwt($secret, [
+            "access_token" => $token,
+            "id_token" => JWT::generate($secret, [
                 // https://www.iana.org/assignments/jwt/jwt.xhtml#claims
                 'iss'       => "http://$server_ip",
                 'uid'       => "$user_id",
@@ -139,6 +154,7 @@ switch ($path) {
                 'iat'       => $iat,
                 'exp'       => $iat + $expires_in,
                 'nonce'     => $nonce,
+                'at_hash'   => JWT::atHash($token),
                 "data" => [
                     'user_id' => $user_id,
                 ],
@@ -218,7 +234,7 @@ switch ($path) {
         # error_description=Forbidden
         $separator = $response_mode === "fragment" ? "#" : "?";
         return view('authorize', [
-            'name'         => $client['name'],
+            'client'       => (object) $client,
             'scope'        => $scope,
             'redirect_url' => "{$redirect_url}{$separator}{$query}",
         ]);
@@ -229,7 +245,7 @@ switch ($path) {
             return;
         }
 
-        dbTableInsert($db, 'auth_access_codes', $_SESSION['access_code']);
+        DB::insert($db, 'auth_access_codes', $_SESSION['access_code']);
         $redirect_url = $_SESSION['redirect_url'];
         unset($_SESSION);
         session_destroy();

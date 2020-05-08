@@ -38,7 +38,7 @@ switch ($path) {
             'nonce'          => $_SESSION['nonce'],
             'scope'          => 'openid',
             'redirect_uri'   => $clients[$key]['redirect'],
-            'code_challenge' => hash("sha256", base64UrlEncode($_SESSION['code_verifier'])),
+            'code_challenge' => hash(HASH_ALGO, base64UrlEncode($_SESSION['code_verifier'])),
             'code_challenge_method' => 'S256',
         ]);
 
@@ -137,7 +137,7 @@ switch ($path) {
                 'error' => $data->error ?? $data->error_code,
             ]);
         }
-        [$header, $payload] = parseJwt($data->id_token);
+        [$header, $payload] = JWT::parse($data->id_token);
         $_SESSION['client_post']  =  $data_string;
         $_SESSION['server_response']  =  $data;
         $_SESSION['access_token'] = $data->access_token;
@@ -171,6 +171,7 @@ switch ($path) {
             'tokens'          => $tokens,
             'title'           => 'dashboard',
             'token_url'       => $token_url,
+            'access_token'    => $_SESSION['access_token'],
             'client_post'     => $_SESSION['client_post'],
             'server_response' => $_SESSION['server_response'],
             'jwt_payload'     => $_SESSION['jwt_payload'],

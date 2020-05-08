@@ -17,8 +17,22 @@ open http://localhost:4443/
 
 ## Notes
 `refresh_token` - only used for confidential clients (read server side)
+- Don't use password or implicit flows
+- Refresh token
+  - Sender constrained or one time use
+- Don't do tokens in query strings
+
+```sh
+docker-compose exec database mysql -psecret -e "SELECT * FROM access_tokens;" oauth2
+```
+https://contoso.auth0.com/.well-known/openid-configuration
+https://accounts.google.com/.well-known/openid-configuration
 
 ## Links
+- https://zapier.com/engineering/apikey-oauth-jwt/
+- https://contoso.auth0.com/.well-known/openid-configuration
+- https://github.com/ory/hydra
+- https://github.com/doorkeeper-gem/doorkeeper
 - https://developer.okta.com/docs/reference/api/oidc/
 - https://stackoverflow.com/questions/46844285/difference-between-oauth-2-0-state-and-openid-nonce-parameter-why-state-cou]
 - https://www.oauth.com/playground/
@@ -126,4 +140,21 @@ GET https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=ya29.a0A
 Connection: keep-alive
 Accept: application/json, text/plain, */*
 User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.129 Safari/537.36
+```
+
+```
+GET http://localhost:3000/rest/user/whoami HTTP/1.1
+Proxy-Connection: keep-alive
+Accept: application/json, text/plain, */*
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdGF0dXMiOiJzdWNjZXNzIiwiZGF0YSI6eyJpZCI6MjAsInVzZXJuYW1lIjoiIiwiZW1haWwiOiJ1c2VyQHRlc3QuY29tIiwicGFzc3dvcmQiOiIwNWE2NzFjNjZhZWZlYTEyNGNjMDhiNzZlYTZkMzBiYiIsInJvbGUiOiJjdXN0b21lciIsImRlbHV4ZVRva2VuIjoiIiwibGFzdExvZ2luSXAiOiIwLjAuMC4wIiwicHJvZmlsZUltYWdlIjoiL2Fzc2V0cy9wdWJsaWMvaW1hZ2VzL3VwbG9hZHMvZGVmYXVsdC5zdmciLCJ0b3RwU2VjcmV0IjoiIiwiaXNBY3RpdmUiOnRydWUsImNyZWF0ZWRBdCI6IjIwMjAtMDUtMDcgMTc6NDc6NTYuNjkwICswMDowMCIsInVwZGF0ZWRBdCI6IjIwMjAtMDUtMDcgMTc6NDc6NTYuNjkwICswMDowMCIsImRlbGV0ZWRBdCI6bnVsbH0sImlhdCI6MTU4ODg3MzY4MywiZXhwIjoxNTg4ODkxNjgzfQ.qWdnv02ktYH6BQE6jqBN-LHzFIUBJ8LBLjeLSmBqAZC1yUGBP7NMPKmjKRodID8dAgtBC9KKAXR-_Tt49I99m2SwMUZDRWMxhyCnq7EEK8p9fmSFFFmURbKUo6i97N7JiUczL_vG6ooma5Y1_vqI1c36XiO_dadXHxbNBwqa-pg
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.129 Safari/537.36
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Language: en-US,en;q=0.9
+Cookie: io=pudwJkOMmQzLRRthAAAH; language=en; token=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdGF0dXMiOiJzdWNjZXNzIiwiZGF0YSI6eyJpZCI6MjAsInVzZXJuYW1lIjoiIiwiZW1haWwiOiJ1c2VyQHRlc3QuY29tIiwicGFzc3dvcmQiOiIwNWE2NzFjNjZhZWZlYTEyNGNjMDhiNzZlYTZkMzBiYiIsInJvbGUiOiJjdXN0b21lciIsImRlbHV4ZVRva2VuIjoiIiwibGFzdExvZ2luSXAiOiIwLjAuMC4wIiwicHJvZmlsZUltYWdlIjoiL2Fzc2V0cy9wdWJsaWMvaW1hZ2VzL3VwbG9hZHMvZGVmYXVsdC5zdmciLCJ0b3RwU2VjcmV0IjoiIiwiaXNBY3RpdmUiOnRydWUsImNyZWF0ZWRBdCI6IjIwMjAtMDUtMDcgMTc6NDc6NTYuNjkwICswMDowMCIsInVwZGF0ZWRBdCI6IjIwMjAtMDUtMDcgMTc6NDc6NTYuNjkwICswMDowMCIsImRlbGV0ZWRBdCI6bnVsbH0sImlhdCI6MTU4ODg3MzY4MywiZXhwIjoxNTg4ODkxNjgzfQ.qWdnv02ktYH6BQE6jqBN-LHzFIUBJ8LBLjeLSmBqAZC1yUGBP7NMPKmjKRodID8dAgtBC9KKAXR-_Tt49I99m2SwMUZDRWMxhyCnq7EEK8p9fmSFFFmURbKUo6i97N7JiUczL_vG6ooma5Y1_vqI1c36XiO_dadXHxbNBwqa-pg
+If-None-Match: W/"b-/5bSboVjVhGw3qRgvUfZjE1r1Ns"
+Host: localhost:3000
+
 ```

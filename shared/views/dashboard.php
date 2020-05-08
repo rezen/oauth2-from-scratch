@@ -9,9 +9,10 @@
 ]);
 ?>
 
+<?php echo defaultHash($access_token); ?>
 <h4>Tokens</h4>
 <?php partial("table", [
-    'attrs' => ['client_id', 'code_id', 'scope', 'token', 'expiration'],
+    'attrs' => ['client_id', 'code_id', 'scope', 'token_hash', 'expiration'],
     'rows'  => $tokens,
 ]);
 ?>

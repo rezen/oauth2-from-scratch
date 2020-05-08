@@ -1,5 +1,7 @@
 <?php
 
+define("HASH_ALGO", "sha256");
+
 $secret   = getenv("APP_SECRET");
 $here     = dirname(__FILE__);
 $user     = getenv("DB_USER");
@@ -16,13 +18,14 @@ $db->exec('CREATE TABLE IF NOT EXISTS access_tokens (
     user_id INTEGER NOT NULL,
     client_id TEXT NOT NULL,
     code_id INTEGER NOT NULL,
-    token TEXT NOT NULL,
+    token_hash TEXT NOT NULL,
     scope TEXT NOT NULL,
     expiration INTEGER NOT NULL,
     UNIQUE(code_id)
   );');
 
 // @todo include device/ip?
+// @todo hash code
 $db->exec('CREATE TABLE IF NOT EXISTS auth_access_codes (
     id   INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,
     user_id INTEGER NOT NULL,
@@ -42,31 +45,31 @@ $db->exec('CREATE TABLE IF NOT EXISTS clients (
     redirect_uri TEXT NOT NULL
   );');
 
-function dbTableInsert($db, $table, $data) 
+class DB
 {
-    $keys = array_keys($data);
-    $bindings = array_map(function($k) {
-        return "?";
-        return ":". $k;
-    }, $keys);
-    $sql = "INSERT INTO $table (" . implode(", ", $keys) . ') VALUES ('. implode(", ", $bindings) .')';
-    $stmt = $db->prepare($sql);
-   
+    static function insert($db, $table, $data) 
+    {
+        $keys = array_keys($data);
+        $bindings = array_map(function($k) {
+            return "?";
+            return ":". $k;
+        }, $keys);
+        $sql = "INSERT INTO $table (" . implode(", ", $keys) . ') VALUES ('. implode(", ", $bindings) .')';
+        $stmt = $db->prepare($sql);
     
-    if (!$stmt) {
-        throw new Exception("Prepare - " .  $db->errorInfo() . " $sql");
+        
+        if (!$stmt) {
+            throw new Exception("Prepare - " .  $db->errorInfo() . " $sql");
+        }
+    
+        $success =  $stmt->execute(array_values($data));
+        if (!$success) {
+            throw new Exception("Execute - " .$stmt->errorInfo()[2] . " $sql");
+        }
     }
-  
-
-    $success =  $stmt->execute(array_values($data));
-
-    if (!$success) {
-        throw new Exception("Execute - " .$stmt->errorInfo()[2] . " $sql");
-    }
-}
 
 
-function dbTableRows($db, $table) {
+static function rows($db, $table) {
     $table = preg_replace('[^a-z0-9_]', "", $table);
     $stmt = $db->prepare("SELECT * FROM `{$table}` WHERE 1=1");
     if (!$stmt) {
@@ -81,30 +84,38 @@ function dbTableRows($db, $table) {
     return [$rows, null];
 }
 
-function getRecentCodes($db) {
-    $stmt = $db->prepare("SELECT * FROM auth_access_codes WHERE 1=1 AND expiration >= :past ORDER BY expiration DESC LIMIT 100");
-    $stmt->bindValue(':' . $key, $value);
-    $stmt->execute([
-        'past' => time() - 7200,
-    ]);
-    $rows =[];
-    while ($row = $stmt->fetch()) {
-        $rows[] = $row;
+    static function select($db, $sql, $data=[])
+    {
+        $stmt = $db->prepare($sql);
+        if (!$stmt) {
+            throw new Exception("Prepare - " .  $db->errorInfo() . " $sql");
+        }
+
+        $success = $stmt->execute($data);
+        if (!$success) {
+            throw new Exception("Execute - " .$stmt->errorInfo()[2] . " $sql");
+        }
+        $rows =[];
+        while ($row = $stmt->fetch()) {
+            $rows[] = $row;
+        }
+        return $rows;   
     }
-    return $rows;   
+}
+
+function getRecentCodes($db) {
+    return DB::select($db, "SELECT * FROM auth_access_codes WHERE 1=1 AND expiration >= :past ORDER BY expiration DESC LIMIT 100", [
+        'past' => time() - 7200,
+    ]);   
 }
 
 function getRecentTokens($db) {
-    $stmt = $db->prepare("SELECT * FROM access_tokens WHERE 1=1 AND expiration >= :past ORDER BY expiration DESC LIMIT 100");
-    $stmt->bindValue(':' . $key, $value);
-    $stmt->execute([
-        'past' => time() - 7200,
-    ]);
-    $rows =[];
-    while ($row = $stmt->fetch()) {
-        $rows[] = $row;
-    }
-    return $rows;   
+    return DB::select($db, "SELECT * FROM access_tokens WHERE 1=1 AND expiration >= :past ORDER BY expiration DESC LIMIT 100", [
+        'past' => time() - 3600,
+    ]);  
+}
+function defaultHash($value) {
+    return hash("sha256", $value);
 }
 
 function view($name, $data=[]) {
@@ -141,44 +152,52 @@ function base64UrlEncode($text)
     );
 }
 
-function parseJwt($data) 
+class JWT
 {
-    $parts = explode(".", $data);
+    static function atHash($token) 
+    {
+        $hash = hash(HASH_ALGO, $token, true);
+        return base64UrlEncode(substr($hash, 0, strlen($hash) / 2));
+    }
 
-    // @todo what if not three parts?
-    $parts = array_map('base64_decode', $parts);
-    [$header, $data, $signature] = $parts;
+    static function parse($data)
+    {
+        $parts = explode(".", $data);
+        $signature = hash_hmac(HASH_ALGO, $base64UrlHeader . "." . $base64UrlPayload, $secret, true);
+    
+        // @todo what if not three parts?
+        $parts = array_map('base64_decode', $parts);
+        [$header, $data, $signature] = $parts;
+    
+        // @todo what if not valid json
+        return [json_decode($header), json_decode($data)];
+    }
 
-    // @todo what if not valid json
-    return [json_decode($header), json_decode($data)];
-}
+    static function generate($secret, $data) 
+    {
+        // Create the token header
+        $header = json_encode([
+            'typ' => 'JWT',
+            'alg' => 'HS256'
+        ]);
 
+        // Create the token payload
+        $payload = json_encode($data);
+        // Encode Header
+        $base64UrlHeader = base64UrlEncode($header);
 
-function generateJwt($secret, $data) 
-{
-    // Create the token header
-    $header = json_encode([
-        'typ' => 'JWT',
-        'alg' => 'HS256'
-    ]);
+        // Encode Payload
+        $base64UrlPayload = base64UrlEncode($payload);
 
-    // Create the token payload
-    $payload = json_encode($data);
+        // Create Signature Hash
+        $signature = hash_hmac(HASH_ALGO, $base64UrlHeader . "." . $base64UrlPayload, $secret, true);
 
-    // Encode Header
-    $base64UrlHeader = base64UrlEncode($header);
+        // Encode Signature to Base64Url String
+        $base64UrlSignature = base64UrlEncode($signature);
 
-    // Encode Payload
-    $base64UrlPayload = base64UrlEncode($payload);
-
-    // Create Signature Hash
-    $signature = hash_hmac('sha256', $base64UrlHeader . "." . $base64UrlPayload, $secret, true);
-
-    // Encode Signature to Base64Url String
-    $base64UrlSignature = base64UrlEncode($signature);
-
-    // Create JWT
-    return $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
+        // Create JWT
+        return $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
+    }
 }
 
 function logger($msg) {
@@ -208,7 +227,7 @@ $terms = [
     'redirect_uri'  => 'What url on the client should the server redirect to. Should be match redirect_uri on server config',
     'client_id'     => 'Randomly generated id server uses to recognize client',
     'client_secret' => 'Random generated secret served checks against hash in storage',
-    'grant_type'    => 'options=[refresh_token,password,client_credentials,authorization_code,implicit]',
+    'grant_type'    => 'options=[refresh_token,client_credentials,authorization_code]',
     'code'          => 'Generated on the server for the client to redeem for an access token',
     'response_mode' => "options=[fragment,query,form_data]",
     'response_type' => "You can use options=[code,token,id_token token]",
