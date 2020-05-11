@@ -21,6 +21,7 @@ open http://localhost:4443/
 - Refresh token
   - Sender constrained or one time use
 - Don't do tokens in query strings
+- Request `offline_access` to indicate you want `refresh_token`
 
 ```sh
 docker-compose exec database mysql -psecret -e "SELECT * FROM access_tokens;" oauth2
