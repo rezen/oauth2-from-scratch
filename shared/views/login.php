@@ -36,5 +36,7 @@ Location: https://github.com/login/oauth/authorize?client_id=1d46d447dfcd2ccd7b1
         With that intro, let's take a look at the request below. 
         We'll be sending this information on to the server to start the process.
     </p>
-    <oauth-client-play method="GET" action="http://localhost:4444/server/oauth/authorize"><?php echo urldecode($query); ?></oauth-client-play>
+    <?php if (!is_null($client)): ?>
+        <oauth-client-play method="GET" action="http://localhost:4444/server/oauth/authorize"><?php echo urldecode($query); ?></oauth-client-play>
+    <?php endif; ?>
 <?php require 'inc/footer.php'; ?>

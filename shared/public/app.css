@@ -5,6 +5,10 @@
 
 #authorize-window {
     max-width: 400px;
+    
+}
+
+.enclose {
     padding: 40px;
     margin: 0 auto;
     background: #aaa;
@@ -119,4 +123,9 @@ code{
 .table th {
     padding: 6px 8px;
     text-align: center;
+}
+
+.error {
+    background: rgb(250, 213, 213);
+    color: rgb(138, 50, 50);
 }

@@ -4,7 +4,10 @@
 
 <h4>Codes</h4>
 <?php partial("table", [
-    'attrs' => ['client_id', 'code', 'scope', 'code_challenge', 'expiration', 'used_at'],
+    'attrs' => [
+        'client_id', 'user_id', 'code',
+        'scope', 'code_challenge', 'expiration', 'used_at'
+    ],
     'rows'  => $codes,
 ]);
 ?>
@@ -12,7 +15,7 @@
 <?php echo defaultHash($access_token); ?>
 <h4>Tokens</h4>
 <?php partial("table", [
-    'attrs' => ['client_id', 'code_id', 'scope', 'token_hash', 'expiration'],
+    'attrs' => ['client_id', 'user_id', 'code_id', 'scope', 'token_hash', 'expiration'],
     'rows'  => $tokens,
 ]);
 ?>

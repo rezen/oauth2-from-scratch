@@ -46,20 +46,27 @@
         <li>Include the received <code>state</code> in the request back to the client</li>
     </ul>
 
-    <section id="authorize-window">
+    <section id="authorize-window" class="enclose">
+        Hey <strong><?php echo $email; ?></strong> 
+        <small>(If this is not you ... click here)</small>
+        <br />
+        <br />
         Can <strong><?php echo $client->name; ?></strong>
         access <strong><?php echo $scope; ?></strong>
         <br />
         Will send data to 
         <span style="margin:4px 0;display: inline-block;background:#333;padding: 6px 8px;border-radius:4px;font-size:12px;color:#fff">
-            <?php echo parse_url($client->redirect, PHP_URL_SCHEME); ?>://<?php echo parse_url($client->redirect, PHP_URL_HOST); ?>
+            <?php echo parse_url($client->redirect_uri, PHP_URL_SCHEME); ?>://<?php echo parse_url($client->redirect_uri, PHP_URL_HOST); ?>
         </span>
         <br />
         <br />
-        <a href="/server/oauth/authorize/consent">Yes</a>
+        <form method="post" action="/server/oauth/authorize/consent">
+            <button type="submit" name="consent" value="1">Yes</button>
+            <button type="submit" name="consent" value="0">No</button>
+        </form>
 
     </section>
-    <oauth-client-play action="http://localhost:4443/client/cb"><?php echo urldecode($redirect_url . "&step=1"); ?></oauth-client-play>
+    <oauth-client-play action="http://localhost:4443/client/callback"><?php echo urldecode($redirect_url . "&step=1"); ?></oauth-client-play>
 
     <form method="post"></form>
 <?php endif; ?>

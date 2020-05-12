@@ -21,37 +21,48 @@ switch ($path) {
             exit;
         }
 
+        [$clients, $error] = DB::rows($db, 'clients');
+
+        $client = $clients[0] ?? null;
         $iat =  time();
-        $key   = "id1";
+        $query = null;
 
-        if (!isset($_SESSION['state'])) {
-            $_SESSION['nonce']         = md5(random_bytes(24));
-            $_SESSION['state']         = md5(random_bytes(24));
-            $_SESSION['code_verifier'] = base64UrlEncode(random_bytes(24));
-        }
+        if (!is_null($client)) {
+            $_SESSION['client_id'] = $client['client_id'];
 
-        $query = http_build_query([
-            'client_id'      => $clients[$key]['id'],
-            'response_type'  => 'code', // code|token|id_token token
-            'response_mode'  => 'query', // query,fragment
-            'state'          => $_SESSION['state'],
-            'nonce'          => $_SESSION['nonce'],
-            'scope'          => 'openid',
-            'redirect_uri'   => $clients[$key]['redirect'],
-            'code_challenge' => hash(HASH_ALGO, base64UrlEncode($_SESSION['code_verifier'])),
-            'code_challenge_method' => 'S256',
-        ]);
+            if (!isset($_SESSION['state'])) {
+                $_SESSION['nonce']         = md5(random_bytes(24));
+                $_SESSION['state']         = md5(random_bytes(24));
+                $_SESSION['code_verifier'] = base64UrlEncode(random_bytes(24));
+            }
 
-        if (isset($_GET['sleep'])) {
-            $query .= "&sleep=1";
+            $query = http_build_query([
+                'client_id'      => $client['client_id'],
+                'response_type'  => 'code', // code|token|id_token token
+                'response_mode'  => 'query', // query,fragment
+                'state'          => $_SESSION['state'],
+                'nonce'          => $_SESSION['nonce'],
+                'scope'          => 'openid',
+                'redirect_uri'   => $client['redirect_uri'],
+                'code_challenge' => hash(HASH_ALGO, base64UrlEncode($_SESSION['code_verifier'])),
+                'code_challenge_method' => 'S256',
+            ]);
+
+            if (isset($_GET['sleep'])) {
+                $query .= "&sleep=1";
+            }
+        } else {
+            unset($_SESSION['state']);
+            unset($_SESSION['client_id']);
         }
         
-        view("login", [
-            'title' => 'Start',
-            'query' => $query,
+        return view("login", [
+            'title'  => 'Start',
+            'query'  => $query,
+            'client' => $client,
         ]);
         break;
-    case '/client/cb':
+    case '/client/callback':
         if (empty($_GET['state']) || empty($_SESSION['state'])) {
             return view("error", [
                 'error' => "Missing the :state parameter",
@@ -69,14 +80,26 @@ switch ($path) {
                 'error' => "The :state parameter does not match",
             ]);
         }
-
         
-        $key = "id1";
+        $client = getClientById($db, $_SESSION['client_id']);
+
+        if (!$client) {
+            return view("error", [
+                'error' => "The :client_id does not match any clients {$_SESSION['client_id']}",
+            ]);
+        }
+
+        if (isset($_GET['error'])) {
+            return view("error", [
+                'error' => $_GET['error_description'],
+            ]);
+        }
+
         $data = [
             'grant_type'    =>'authorization_code',
-            'client_id'     => $clients[$key]['id'],
-            'client_secret' => $clients[$key]['secret'],
-            'redirect_uri'  => 'TODO',
+            'client_id'     => $client->client_id,
+            'client_secret' => $client->client_secret,
+            'redirect_uri'  => $client->redirect_uri,
             'code'          => $_GET['code'],
             "code_verifier" => $_SESSION['code_verifier'],
             'nonce'         => $_SESSION['nonce'],
@@ -146,7 +169,6 @@ switch ($path) {
     
         unset($_SESSION['state']);
         unset($_SESSION['code_verifier']);
-
         header("Location: /client/dashboard");
         exit;        
         break;
@@ -179,5 +201,6 @@ switch ($path) {
         ]);
         break;
     default:
-        header("Location: /client/dashboard");
+        echo "no-match";
+        // header("Location: /client/dashboard");
 }

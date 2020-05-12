@@ -12,7 +12,23 @@ $dsn      = "mysql:host=$dbhost;port=3306;dbname=oauth2";
 
 $db = new PDO($dsn, $user, $password);
 
-# @todo revoked_at
+$db->exec('CREATE TABLE IF NOT EXISTS users (
+    id   INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,
+    email VARCHAR(100) NOT NULL,
+    password_hash TEXT NOT NULL,
+    password_unsafe_never_do TEXT NOT NULL,
+    UNIQUE(email)
+  );');
+
+$db->exec('CREATE TABLE IF NOT EXISTS user_consents (
+    id   INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,
+    user_id INTEGER NOT NULL,
+    client_id TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    revoked_at DATETIME DEFAULT NULL
+    UNIQUE(user_id, client_id)
+  );');
+
 $db->exec('CREATE TABLE IF NOT EXISTS access_tokens (
     id   INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,
     user_id INTEGER NOT NULL,
@@ -39,11 +55,15 @@ $db->exec('CREATE TABLE IF NOT EXISTS auth_access_codes (
 
 $db->exec('CREATE TABLE IF NOT EXISTS clients (
     id   INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,
-    client_id TEXT NOT NULL,
+    client_id VARCHAR(32) NOT NULL,
+    client_secret TEXT NOT NULL,
     client_secret_hash TEXT NOT NULL,
     name TEXT NOT NULL,
-    redirect_uri TEXT NOT NULL
+    redirect_uri TEXT NOT NULL,
+    revoked_at DATETIME DEFAULT NULL,
+    UNIQUE(client_id)
   );');
+
 
 class DB
 {
@@ -114,6 +134,37 @@ function getRecentTokens($db) {
         'past' => time() - 3600,
     ]);  
 }
+
+function getTokensForUser($db, $user_id) {
+    return DB::select($db, "SELECT * FROM access_tokens WHERE 1=1 AND user_id=:user_id", [
+        'user_id' => (int) $user_id,
+    ]);  
+}
+
+function getClientById($db, $client_id) {
+    $found = DB::select($db, "SELECT * FROM clients WHERE 1=1 AND client_id=:client_id", [
+        'client_id' => $client_id,
+    ]);
+
+    if (empty($found)) {
+        return false;
+    }
+
+    return (object) $found[0];
+}
+
+function getUserByEmail($db, $email) {
+    $found = DB::select($db, "SELECT * FROM users WHERE 1=1 AND email=:email", [
+        'email' => $email,
+    ]);
+
+    if (empty($found)) {
+        return false;
+    }
+
+    return (object) $found[0];
+}
+
 function defaultHash($value) {
     return hash("sha256", $value);
 }
@@ -205,14 +256,18 @@ function logger($msg) {
     file_put_contents(dirname(__FILE__) . "/log.txt", "[$now] $msg \n", FILE_APPEND);
 }
 
-$clients = [
-    'id1' => [
-        'name'     => "Doe's Cats",
-        'id'       => 'id1',
-        'secret'   => 'secret',
-        'redirect' => "http://localhost:4443/client/cb?server=test",
-    ],
-];
+function rebuildUrl($url, $separator="?", $data=[])
+{
+    $target    = strtok($url, '?');
+    $qs = explode("?", pathinfo($url, PHP_URL_QUERY))[1] ?? "";
+    $sans_query    = strtok($redirect_url, '?');
+    $params = [];
+    // Get params from redirect uri
+    parse_str($qs, $params);
+    $params = array_merge($params, $data);
+    $query =  http_build_query($params);
+    return $target . $separator . $query; 
+}
 
 $scopes = [
     'openid'

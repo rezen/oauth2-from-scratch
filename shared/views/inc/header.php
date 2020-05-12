@@ -12,4 +12,13 @@ $color = $role === "server" ? "red" : "blue";
         <script src="/public/app.js"></script>
     </head>
     <body data-role="<?php echo $role; ?>">
+        <nav>
+        <?php if ($role === "server"): ?>
+            <a href="http://localhost:4443/client/start">Start</a>
+            <a href="/server/users">Users</a>
+            <a href="/server/clients">Clients</a>
+        <?php else: ?>
+            <a href="http://localhost:4444/server/users">Server</a>
+        <?php endif; ?>
+        </nav>
         <section id="app">

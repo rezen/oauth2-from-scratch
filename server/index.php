@@ -9,7 +9,6 @@ require '../shared/helpers.php';
 $path = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH);
 $ext  = pathinfo($path, PATHINFO_EXTENSION);
 
-$user_id   = 12; // @todo
 $client_ip = gethostbyname('client');
 $server_ip = gethostbyname('server');
 
@@ -19,6 +18,65 @@ $paths = [
 ];
 
 switch ($path) {
+    case '/auth/logout':
+        $_SESSION = [];
+        unset($_SESSION);
+        session_destroy();
+        header('Location: /auth/login');
+    break;
+    case '/auth/login':
+        $error = false;
+        $redirect = "/dashboard";
+
+        if (isset($_GET['return_to'])) {
+            $parts = parse_url($_GET['return_to']);
+            $path = $parts['path'];
+            $query = urldecode($parts['query']);
+            if(in_array($path, [
+                '/server/oauth/authorize'
+            ])) {
+                $redirect = "{$path}?{$query}";
+            }
+        }
+
+
+        if (!empty($_POST)) {
+            $email = $_POST['email'];
+            $password = $_POST['password'];
+            $user = getUserByEmail($db, $email);
+
+            // Error should be could ambigous "authn failed, could not find matching username & password" 
+            // however for this educational app it is less relevant
+            if (!$user) {
+                $error = "That user does not exist";
+            } else if (!password_verify($password, $user->password_hash)) {
+                $error = 'Password is invalid!';
+            } else {
+                $_SESSION['logged_in'] = true;
+                $_SESSION['user_email'] = $user->email;
+                $_SESSION['user_id'] = $user->id;
+
+                header("Location: $redirect");
+                exit;
+            }
+        }
+        return view('login_server', [
+            'title' => 'Login',
+            'error' => $error,
+        ]);
+    case '/dashboard':
+        $is_logged_in = $_SESSION['logged_in'] ?? false;
+
+        if (!$is_logged_in) {
+            header('Location: /auth/login');
+            return;
+        }
+        [$tokens, $error] = getTokensForUser($db, $_SESSION['user_id']);
+        return view('dashboard_server', [
+            'error'  => $error,
+            'tokens' => $tokens,
+            'email'  => $_SESSION['user_email'],
+        ]);
     case '/server/oauth/token':
         session_regenerate_id(true);
         header("HTTP/1.1 200 OK");
@@ -30,8 +88,10 @@ switch ($path) {
         $code_verifier = $_POST['code_verifier'] ?? null;
         $now           = time();
         
+        $client = getClientById($db, $client_id);
+
         // Verify this is a read client_id
-        if (!array_key_exists($client_id, $clients)) {
+        if (!$client) {
             return json_response([                
                 'error_code' => 'invalid_client',
                 'error' => "This is not a valid :client_id"
@@ -39,7 +99,7 @@ switch ($path) {
         }
 
         // Verify valid secret
-        if (!hash_equals($clients[$client_id]['secret']  ?? "", $client_secret)) {
+        if (!hash_equals($client->client_secret_hash  ?? "", hash('sha256', $client_secret))) {
             return json_response([                
                 'error_code' => 'invalid_client_client',
                 'error'      => "This is not a valid :client_secret"
@@ -114,10 +174,11 @@ switch ($path) {
         $token  = base64UrlEncode(random_bytes(128));
         $iat    = time();
         $expires_in = 3600;
-        
+        $user_id = $row['user_id'];
+
         try {
             DB::insert($db, 'access_tokens', [
-                'user_id'    => (int) $user_id,
+                'user_id'    => (int) $user_id, // @todo
                 'client_id'  => $client_id,
                 'token_hash' => defaultHash($token),
                 'scope'      => $row['scope'],
@@ -165,10 +226,13 @@ switch ($path) {
         break;
 
     case '/server/oauth/authorize':
+        // If authorized client_id ... no need for consent
         $client_id     = $_GET['client_id'] ?? null;
         $response_mode = $_GET['response_mode'] ?? "query";
 
-        if (!array_key_exists($client_id, $clients)) {
+        $client = getClientById($db, $client_id);
+
+        if (!$client) {
             return view('authorize', [
                 'error_code' => 'invalid_client',
                 'error'      => "This is not a valid :client_id"
@@ -192,12 +256,19 @@ switch ($path) {
             ]);
         }
 
-        $state = preg_replace('[^A-Za-z0-9_-]', "", $_GET['state'] ?? "");
+        $is_logged_in = $_SESSION['logged_in'] ?? false;
+        if (!$is_logged_in) {
+            $back = urlencode("/server/oauth/authorize?" . http_build_query($_GET));
+            header("Location: /auth/login?return_to=$back");
+            return;
+        }
 
-        $client = $clients[$client_id];
+
+        $state = preg_replace('[^A-Za-z0-9_-]', "", $_GET['state'] ?? "");
         $scope  = preg_replace('[^A-Za-z0-9_-: ]', "", $_GET['scope'] ?? "");
        
-        $redirect_url    = $client['redirect'];
+        $separator = $response_mode === "fragment" ? "#" : "?";
+        $redirect_url    = $client->redirect_uri;
         $redirect_params = explode("?", pathinfo($redirect_url, PHP_URL_QUERY))[1] ?? "";
         $redirect_url    = strtok($redirect_url, '?');
         
@@ -214,27 +285,26 @@ switch ($path) {
             $expiration = $expiration - 58;
         }
 
-        $separator = $response_mode === "fragment" ? "#" : "?";
 
         $_SESSION['access_code'] = [
             'client_id'      => $client_id,
             'scope'          => $scope,
             'code'           => $code,
             'expiration'     => $expiration,
-            'user_id'        => $user_id,
+            'user_id'        => $_SESSION['user_id'],
             'code_challenge' => $code_challenge,
         ];
 
+        $_SESSION['client_redirect_uri'] = $client->redirect_uri;
         $_SESSION['redirect_url'] = "{$redirect_url}{$separator}{$query}";
 
    
-        # For cancel ...
-        # error=access_denied
-        # error_description=Forbidden
         $separator = $response_mode === "fragment" ? "#" : "?";
         return view('authorize', [
+            'email'        => $_SESSION['user_email'],
             'client'       => (object) $client,
             'scope'        => $scope,
+            'response_mode' => $response_mode,
             'redirect_url' => "{$redirect_url}{$separator}{$query}",
         ]);
         break;
@@ -244,8 +314,26 @@ switch ($path) {
             return;
         }
 
-        DB::insert($db, 'auth_access_codes', $_SESSION['access_code']);
         $redirect_url = $_SESSION['redirect_url'];
+        $separator = $response_mode === "fragment" ? "#" : "?";
+
+
+        if ($_POST['consent'] !== "1") {
+            $redirect_url = rebuildUrl($redirect_url, $separator, [
+                'code' => 0,
+                'error' => 'access_denied',
+                'error_description' => 'User did not consent',
+            ]);
+
+            header("Pragma: no-cache");
+            header("Cache-Control: no-cache, no-store, max-age=0, must-revalidate");
+            header("Location: $redirect_url", true, 302);
+            return view('redirect', [
+                'redirect_url' => $redirect_url,
+            ]);
+        }
+
+        DB::insert($db, 'auth_access_codes', $_SESSION['access_code']);
         unset($_SESSION);
         session_destroy();
 
@@ -255,6 +343,70 @@ switch ($path) {
         return view('redirect', [
             'redirect_url' => $redirect_url . '&step=1',
         ]);
+    case '/server/clients':
+        $error = false;
+        $client = false;
+        if (!empty($_POST)) {
+            $name = preg_replace('/[^A-Za-z0-9_-]+/', "", $_POST['name'] ?? "");
+            $redirect_uri = $_POST['redirect_uri'] ?? "";
+            $protocol = parse_url($redirect_uri, PHP_URL_SCHEME);
+
+            // Don't allow http for real oauth
+            if (!in_array($protocol, ['http', 'https'])) {
+                $error = "Invalid protocol ($protocol)";
+            }
+
+            if (!filter_var($redirect_uri, FILTER_VALIDATE_URL)) {
+                $error = "Invalid url";
+            }
+
+            if (!$error) {
+                $secret = bin2hex(random_bytes(40));
+                $client = [
+                    'redirect_uri' => $redirect_uri,
+                    'name'         => $name,
+                    'client_id'    => md5(random_bytes(32)),
+                    'client_secret_hash' => hash('sha256', $secret),
+                    'client_secret'  => $secret,
+                ];
+                DB::insert($db, 'clients', $client);
+            }
+        }
+
+        [$clients, $error2] = DB::rows($db, 'clients');
+        return view('manage_clients', [
+            'error'   => $error ?? $error2,
+            'clients' => $clients,
+            'client'  => is_array($client) ? (object) $client : $client,
+        ]);
+    case '/server/users':
+            $error = false;
+            if (!empty($_POST)) {
+                $email = $_POST['email'] ?? "";
+    
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $error = "Invalid email";
+                }
+    
+                if (!$error) {
+                    $password = $_POST['password'] ?? md5(random_bytes(32));
+                    $password = empty($password) ? md5(random_bytes(32)) : $password;
+                    DB::insert($db, 'users', [
+                        'email'         => $email,
+                        'password_hash' => password_hash($password, PASSWORD_BCRYPT, [
+                            'cost' => 12,
+                        ]),
+                        'password_unsafe_never_do' => $password,
+                    ]);
+                }
+            }
+    
+            [$users, $error2] = DB::rows($db, 'users');
+            return view('manage_users', [
+                'error'   => $error ?? $error2,
+                'users' => $users,
+            ]); 
+     
     default:
         echo 'NOT FOUND\n<br />';
         echo "$client_ip";
