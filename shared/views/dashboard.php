@@ -1,5 +1,10 @@
 <?php require 'inc/header.php'; ?>
 
+<?php if (!is_null($error)): ?>
+    <?php echo $error; ?>
+<?php else: ?>
+    Is verified!
+<?php endif; ?>
 <a href="/client/logout">Logout</a>
 
 <h4>Codes</h4>

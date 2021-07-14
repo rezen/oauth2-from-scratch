@@ -77,6 +77,9 @@ switch ($path) {
             'tokens' => $tokens,
             'email'  => $_SESSION['user_email'],
         ]);
+    case '/server/oauth/introspect':
+        // Must be authenticated
+        break;
     case '/server/oauth/token':
         session_regenerate_id(true);
         header("HTTP/1.1 200 OK");
@@ -161,7 +164,7 @@ switch ($path) {
         }
 
         // Verify code_verifier for PKSE
-        $proof = hash(HASH_ALGO, base64UrlEncode($code_verifier));
+        $proof = hash(HASH_ALGO, Base64::urlEncode($code_verifier));
         if (!hash_equals($proof, $row['code_challenge'])) {
             return json_response([  
                 'error_code' => 'invalid_request',
@@ -171,7 +174,7 @@ switch ($path) {
         }
 
         // Opaque key used by applications
-        $token  = base64UrlEncode(random_bytes(128));
+        $token  = Base64::urlEncode(random_bytes(128));
         $iat    = time();
         $expires_in = 3600;
         $user_id = $row['user_id'];
@@ -213,8 +216,8 @@ switch ($path) {
                 'aud'       => $client_id,
                 'iat'       => $iat,
                 'exp'       => $iat + $expires_in,
-                'nonce'     => $nonce,
-                'at_hash'   => JWT::atHash($token),
+                //'nonce'     => $nonce,
+                //'at_hash'   => JWT::atHash($token),
                 "data" => [
                     'user_id' => $user_id,
                 ],

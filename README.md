@@ -14,6 +14,7 @@ open http://localhost:4443/
 - Implement grant_types for SPAs
 - Implement API for client to make requests against
   - Add scope checking
+- Have a separate resource server example
 
 ## Notes
 `refresh_token` - only used for confidential clients (read server side)
@@ -22,6 +23,24 @@ open http://localhost:4443/
   - Sender constrained or one time use
 - Don't do tokens in query strings
 - Request `offline_access` to indicate you want `refresh_token`
+- If the oauth server is also the resource server `HS256` is probably fine
+- Use `RSA256` if the resource server is separate, then a resource server can use a public key to verify the JWT claims from a client.
+  - `kid` allows for key rotation
+
+- `jti` replay otectiiom pr
+- Token types
+  - self contained token
+  - Reference token
+    - API sends to STS and get info
+- in API enforce audience (`aud`)
+- https://github.com/phpseclib/phpseclib
+- 
+```sh
+# openssl genrsa -passout pass:_passphrase_ -out private.key 4096
+openssl genrsa -out private.key 4096
+openssl rsa -in private.key -pubout -out public.key
+```
+
 
 ```sh
 docker-compose exec database mysql -psecret -e "SELECT * FROM access_tokens;" oauth2
@@ -30,6 +49,9 @@ https://contoso.auth0.com/.well-known/openid-configuration
 https://accounts.google.com/.well-known/openid-configuration
 
 ## Links
+- https://auth0.com/docs/quickstart/backend/python/01-authorization#protect-api-endpoints
+- https://renzo.lucioni.xyz/verifying-jwts-with-jwks-and-pyjwt/
+- https://redthunder.blog/2017/06/08/jwts-jwks-kids-x5ts-oh-my/
 - https://zapier.com/engineering/apikey-oauth-jwt/
 - https://contoso.auth0.com/.well-known/openid-configuration
 - https://github.com/ory/hydra
@@ -43,6 +65,8 @@ https://accounts.google.com/.well-known/openid-configuration
 - https://www.stefaanlippens.net/oauth-code-flow-pkce.html
 - https://www.oauth.com/oauth2-servers/server-side-apps/possible-errors/
 - https://alexbilbie.com/guide-to-oauth-2-grants/
+- https://www.thoughtworks.com/insights/blog/bff-soundcloud
+
 
 ### Samples
 Here are links to docs of some specific providers

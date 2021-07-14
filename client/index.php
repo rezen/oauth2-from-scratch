@@ -33,7 +33,7 @@ switch ($path) {
             if (!isset($_SESSION['state'])) {
                 $_SESSION['nonce']         = md5(random_bytes(24));
                 $_SESSION['state']         = md5(random_bytes(24));
-                $_SESSION['code_verifier'] = base64UrlEncode(random_bytes(24));
+                $_SESSION['code_verifier'] = Base64::urlEncode(random_bytes(24));
             }
 
             $query = http_build_query([
@@ -44,7 +44,7 @@ switch ($path) {
                 'nonce'          => $_SESSION['nonce'],
                 'scope'          => 'openid',
                 'redirect_uri'   => $client['redirect_uri'],
-                'code_challenge' => hash(HASH_ALGO, base64UrlEncode($_SESSION['code_verifier'])),
+                'code_challenge' => hash(HASH_ALGO, Base64::urlEncode($_SESSION['code_verifier'])),
                 'code_challenge_method' => 'S256',
             ]);
 
@@ -185,10 +185,18 @@ switch ($path) {
             header("Location: /client/start?error=access_denied");
             exit;
         }
+        $error = null;
         $codes  = getRecentCodes($db);
         $tokens = getRecentTokens($db);
-    
-        view('dashboard', [
+        
+        try {
+            JWT::verify($_SESSION['server_response']->id_token);
+        } catch(Exception $err) {
+            $error = $err->getMessage();
+        }
+
+        return view('dashboard', [
+            'error'           => $error, 
             'codes'           => $codes,
             'tokens'          => $tokens,
             'title'           => 'dashboard',

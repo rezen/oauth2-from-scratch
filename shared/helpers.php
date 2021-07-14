@@ -2,6 +2,15 @@
 
 define("HASH_ALGO", "sha256");
 
+// Create the private and public key
+/*
+$res = openssl_pkey_new([
+    "digest_alg"        => "sha256",
+    "private_key_bits"  => 4096,
+    "private_key_type"  => OPENSSL_KEYTYPE_RSA,
+]);
+*/
+
 $secret   = getenv("APP_SECRET");
 $here     = dirname(__FILE__);
 $user     = getenv("DB_USER");
@@ -194,60 +203,101 @@ function json_response($data) {
     exit;
 }
 
-function base64UrlEncode($text)
+class Base64
 {
-    return str_replace(
-        ['+', '/', '='],
-        ['-', '_', ''],
-        base64_encode($text)
-    );
+    public static $urlsafe = ['-', '_', ''];
+    public static $noturlsafe  = ['+', '/', '='];
+
+    function urlEncode($text)
+    {
+        return str_replace(
+            self::$noturlsafe,
+            self::$urlsafe,
+            base64_encode($text)
+        );
+    }
+
+    function urlDecode($text)
+    {
+        return base64_decode(str_replace(
+            self::$urlsafe,
+            self::$noturlsafe,
+            $text
+        ));
+    }
 }
+
+
 
 class JWT
 {
     static function atHash($token) 
     {
         $hash = hash(HASH_ALGO, $token, true);
-        return base64UrlEncode(substr($hash, 0, strlen($hash) / 2));
+        return Base64::urlEncode(substr($hash, 0, strlen($hash) / 2));
     }
 
-    static function parse($data)
+    static function parse($data, $secret=null)
     {
-        $parts = explode(".", $data);
-        $signature = hash_hmac(HASH_ALGO, $base64UrlHeader . "." . $base64UrlPayload, $secret, true);
-    
         // @todo what if not three parts?
-        $parts = array_map('base64_decode', $parts);
+        $parts = array_map(['Base64', 'urlDecode'], explode(".", $data));
         [$header, $data, $signature] = $parts;
-    
+        
         // @todo what if not valid json
         return [json_decode($header), json_decode($data)];
     }
 
-    static function generate($secret, $data) 
+    static function verify($data, $secret=null)
     {
-        // Create the token header
-        $header = json_encode([
-            'typ' => 'JWT',
-            'alg' => 'HS256'
-        ]);
+        // @todo what if not three parts?
+        $parts = explode(".", $data);
+        [$header, $payload, $signature] = $parts;
+        $signature = Base64::urlDecode($signature);
+        $content = $header . "." . $payload;
 
-        // Create the token payload
-        $payload = json_encode($data);
-        // Encode Header
-        $base64UrlHeader = base64UrlEncode($header);
+       
+        $pubkey = file_get_contents(dirname(__FILE__). "/public.key");
 
-        // Encode Payload
-        $base64UrlPayload = base64UrlEncode($payload);
-
+        if (!openssl_verify($content, $signature, $pubkey, 'sha256')) {
+            throw new Exception("openssl-error " . openssl_error_string());
+        }
+        return true;
+    }
+    
+    static function signSha256($secret, $data)
+    {
         // Create Signature Hash
-        $signature = hash_hmac(HASH_ALGO, $base64UrlHeader . "." . $base64UrlPayload, $secret, true);
+        $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
+        // Create Signature Hash
+        $signature = hash_hmac(HASH_ALGO,  Base64::urlEncode($header) . "." . $text, $secret, true);
+        return [$header, $signature];
+    }
 
-        // Encode Signature to Base64Url String
-        $base64UrlSignature = base64UrlEncode($signature);
+    static function signRsa256($secret, $text)
+    {
+        $header = json_encode([
+            'typ' => 'JWT', 
+            'alg' => 'RS256',
+            'kid' => md5_file(dirname(__FILE__). "/public.key"),
+        ]);
+        $pkeyid = openssl_pkey_get_private(file_get_contents(dirname(__FILE__) . "/private.key"));
+        $content = Base64::urlEncode($header) . "." . Base64::urlEncode($text);
+        openssl_sign($content, $signature, $pkeyid, "sha256");
+
+        return [$header, $signature];
+    }
+
+    static function generate($secret, $data) 
+    {   
+        // Create the token header
+        [$header, $signature] = static::signRsa256($secret, json_encode($data));
 
         // Create JWT
-        return $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
+        return implode(".", [
+            Base64::urlEncode($header),
+            Base64::urlEncode(json_encode($data)),
+            Base64::urlEncode($signature),
+        ]);
     }
 }
 
